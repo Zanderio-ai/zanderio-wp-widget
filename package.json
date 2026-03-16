@@ -1,0 +1,46 @@
+{
+  "name": "zanderio-wp-widget",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "license": "GPL-2.0-or-later",
+  "description": "Source code for the Zanderio AI chat widget (WordPress plugin).",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zanderio-ai/zanderio-wp-widget.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build:wordpress:dev": "WIDGET_TARGET=wordpress WIDGET_ENV=dev vite build",
+    "build:wordpress:prod": "WIDGET_TARGET=wordpress WIDGET_ENV=prod vite build",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@grafana/faro-web-sdk": "^1.14.1",
+    "@grafana/faro-web-tracing": "^1.14.1",
+    "axios": "^1.13.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.5.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "baseline-browser-mapping": "^2.10.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
+    "terser": "^5.46.0",
+    "vite": "^7.2.4",
+    "vitest": "^3.2.1"
+  }
+}
