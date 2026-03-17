@@ -130,6 +130,7 @@ function zanderio_maybe_redirect() {
     delete_transient( 'zanderio_redirect_after_activate' );
 
     /* Don't redirect on bulk activation or AJAX */
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Standard WP activation redirect; no nonce is available here.
     if ( wp_doing_ajax() || isset( $_GET['activate-multi'] ) ) {
         return;
     }
@@ -137,7 +138,8 @@ function zanderio_maybe_redirect() {
     $authorize_url = get_transient( 'zanderio_authorize_url' );
     if ( $authorize_url ) {
         delete_transient( 'zanderio_authorize_url' );
-        wp_redirect( $authorize_url );
+        add_filter( 'allowed_redirect_hosts', 'zanderio_allowed_redirect_hosts' );
+        wp_safe_redirect( $authorize_url );
         exit;
     }
 }
@@ -197,9 +199,9 @@ function zanderio_render_settings_page() {
 
     /* Handle widget colour save */
     if (
-        isset( $_POST['zanderio_action'] ) &&
-        $_POST['zanderio_action'] === 'save_widget_color' &&
-        wp_verify_nonce( $_POST['_wpnonce'], 'zanderio_reconnect' )
+        isset( $_POST['zanderio_action'], $_POST['_wpnonce'] ) &&
+        'save_widget_color' === sanitize_text_field( wp_unslash( $_POST['zanderio_action'] ) ) &&
+        wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'zanderio_reconnect' )
     ) {
         $color = sanitize_hex_color( wp_unslash( $_POST['zanderio_widget_color'] ?? '' ) );
         if ( $color ) {
@@ -243,8 +245,11 @@ function zanderio_render_settings_page() {
     echo '</div>';
 
     /* Handle form submissions */
-    if ( isset( $_POST['zanderio_action'] ) && wp_verify_nonce( $_POST['_wpnonce'], 'zanderio_reconnect' ) ) {
-        $action = sanitize_text_field( $_POST['zanderio_action'] );
+    if (
+        isset( $_POST['zanderio_action'], $_POST['_wpnonce'] ) &&
+        wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'zanderio_reconnect' )
+    ) {
+        $action = sanitize_text_field( wp_unslash( $_POST['zanderio_action'] ) );
 
         if ( $action === 'reconnect' ) {
             zanderio_do_handshake_and_redirect();
@@ -295,8 +300,21 @@ function zanderio_do_handshake_and_redirect() {
     update_option( 'zanderio_plugin_secret', $body['data']['plugin_secret'] );
     update_option( 'zanderio_domain',        $body['data']['domain'] );
 
-    wp_redirect( $body['data']['authorize_url'] );
+    add_filter( 'allowed_redirect_hosts', 'zanderio_allowed_redirect_hosts' );
+    wp_safe_redirect( $body['data']['authorize_url'] );
     exit;
+}
+
+/**
+ * Allow Zanderio hosts for safe redirects (authorize-application flow).
+ *
+ * @param  array $hosts Existing allowed hosts.
+ * @return array
+ */
+function zanderio_allowed_redirect_hosts( $hosts ) {
+    $hosts[] = 'zanderio.ai';
+    $hosts[] = 'api.zanderio.ai';
+    return $hosts;
 }
 
 /**

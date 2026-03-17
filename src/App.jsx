@@ -33,9 +33,12 @@ export default function App({ settings }) {
   const { isMobile } = useResponsive();
   const { socket, storeId, shopperId, sessionId, remoteConfig } =
     useSocket(settings);
-  const { widgetConfig, isConfigReady } = useWidgetConfig(settings, remoteConfig);
+  const { widgetConfig, isConfigReady } = useWidgetConfig(
+    settings,
+    remoteConfig,
+  );
   const { messages, sendMessage, isLoading, isTyping, updateWelcomeMessage } =
-    useChat(socket, storeId, shopperId, sessionId, settings);
+    useChat(storeId, shopperId, sessionId, settings);
   const { addToCart, toast, showToast } = useCart();
 
   useEffect(() => {
