@@ -69,8 +69,8 @@ REST API above.
 
 **Links:**
 
-* [Zanderio Terms of Service](https://zanderio.ai/terms)
-* [Zanderio Privacy Policy](https://zanderio.ai/privacy)
+* [Zanderio Terms of Service](https://zanderio.ai/resources/terms-and-conditions)
+* [Zanderio Privacy Policy](https://zanderio.ai/resources/privacy-policy)
 
 == Source Code & Build Tools ==
 
