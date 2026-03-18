@@ -5,7 +5,7 @@
  * chat session.
  *
  * @param {string|null} storeId
- * @param {string} shopperId
+ * @param {string} visitorId
  * @param {string|null} sessionId
  * @param {object} settings
  * @returns {{ messages, sendMessage, isLoading, isTyping, updateWelcomeMessage }}
@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createApiClient, getConversations } from "../services/api.service";
 import { parseActions } from "../utils/content-blocks";
 
-export function useChat(storeId, shopperId, sessionId, settings) {
+export function useChat(storeId, visitorId, sessionId, settings) {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -44,10 +44,10 @@ export function useChat(storeId, shopperId, sessionId, settings) {
   }, []);
 
   useEffect(() => {
-    if (!storeId || !shopperId || historyLoadedRef.current) return;
+    if (!storeId || !visitorId || historyLoadedRef.current) return;
     historyLoadedRef.current = true;
 
-    getConversations(apiRef.current, { storeId, shopperId })
+    getConversations(apiRef.current, { storeId, visitorId })
       .then((response) => {
         const conversations = response?.data?.data;
         if (
@@ -109,7 +109,7 @@ export function useChat(storeId, shopperId, sessionId, settings) {
       .catch(() => {
         /* history load failed silently */
       });
-  }, [storeId, shopperId]);
+  }, [storeId, visitorId]);
 
   const sendMessage = useCallback(async (_text) => {
     void _text;

@@ -38,11 +38,11 @@ export function createApiClient(baseURL) {
 
 /**
  * @param {import("axios").AxiosInstance} client
- * @param {{ storeId: string, shopperId: string }} params
+ * @param {{ storeId: string, visitorId: string }} params
  * @returns {Promise<import("axios").AxiosResponse>}
  */
-export function getConversations(client, { storeId, shopperId }) {
+export function getConversations(client, { storeId, visitorId }) {
   return client.get("/stores/widget/conversations", {
-    params: { storeId, shopperId },
+    params: { storeId, visitorId },
   });
 }

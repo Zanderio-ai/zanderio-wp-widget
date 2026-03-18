@@ -8,7 +8,7 @@
  * Hook wiring
  * -----------
  *   useResponsive   → isMobile
- *   useSocket       → socket, storeId, shopperId, sessionId, remoteConfig
+ *   useSocket       → socket, storeId, visitorId, sessionId, remoteConfig
  *   useWidgetConfig → widgetConfig  (merges local + remote)
  *   useChat         → messages, sendMessage, isLoading, isTyping
  *   useCart         → addToCart, toast, showToast
@@ -31,14 +31,14 @@ import ChatWidget from "./components/chat-widget/chat-widget";
 
 export default function App({ settings }) {
   const { isMobile } = useResponsive();
-  const { socket, storeId, shopperId, sessionId, remoteConfig } =
+  const { socket, storeId, visitorId, sessionId, remoteConfig } =
     useSocket(settings);
   const { widgetConfig, isConfigReady } = useWidgetConfig(
     settings,
     remoteConfig,
   );
   const { messages, sendMessage, isLoading, isTyping, updateWelcomeMessage } =
-    useChat(storeId, shopperId, sessionId, settings);
+    useChat(storeId, visitorId, sessionId, settings);
   const { addToCart, toast, showToast } = useCart();
 
   useEffect(() => {

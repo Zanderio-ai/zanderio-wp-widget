@@ -1,24 +1,11 @@
 /**
  * Zanderio Widget — useSocket Hook
  *
- * Manages the full Socket.IO connection lifecycle for the widget:
+ * Manages the full Socket.IO connection lifecycle for the widget.
  *
- *   1. Creates a socket via `createSocket()` (auto-connect disabled).
- *   2. On `connect`, emits two events:
- *      • `widget:config:request` — asks the backend for remote widget
- *        appearance config (colors, position, welcome message, etc.).
- *      • `identify` — tells the backend which shop / customer this
- *        socket belongs to.
- *   3. Listens for `widget:config:response` and `SESSION_STARTED` to
- *      capture the server-assigned `storeId`, `shopperId`, and any
- *      remote widget config overrides.
- *   4. Persists the shopper ID in localStorage so returning visitors
- *      keep the same identity across sessions.
- *   5. Tears down all listeners and disconnects on unmount.
- *
- * @param {object} settings — resolved widget configuration from the host page
+ * @param {object} settings
  * @returns {{ socket: React.MutableRefObject, storeId: string|null,
- *             shopperId: string, sessionId: string|null, remoteConfig: object|null }}
+ *             visitorId: string, sessionId: string|null, remoteConfig: object|null }}
  *
  * @module hooks/use-socket
  */
@@ -26,14 +13,14 @@
 import { useState, useEffect, useRef } from "react";
 import {
   createSocket,
-  getShopperId,
-  persistShopperId,
+  getVisitorId,
+  persistVisitorId,
 } from "../services/socket.service";
 
 export function useSocket(settings) {
   const socketRef = useRef(null);
   const [storeId, setStoreId] = useState(null);
-  const [shopperId, setShopperId] = useState(getShopperId());
+  const [visitorId, setVisitorId] = useState(getVisitorId());
   const [sessionId, setSessionId] = useState(null);
   const [remoteConfig, setRemoteConfig] = useState(null);
 
@@ -61,9 +48,9 @@ export function useSocket(settings) {
       const wc = data.widget || data.widgetConfig;
       if (wc) setRemoteConfig(wc);
 
-      if (data.shopperId) {
-        setShopperId(data.shopperId);
-        persistShopperId(data.shopperId);
+      if (data.visitorId) {
+        setVisitorId(data.visitorId);
+        persistVisitorId(data.visitorId);
       }
 
       if (data.sessionId) {
@@ -81,9 +68,9 @@ export function useSocket(settings) {
       const data = response?.data;
       if (!data) return;
 
-      if (data.shopperId) {
-        setShopperId(data.shopperId);
-        persistShopperId(data.shopperId);
+      if (data.visitorId) {
+        setVisitorId(data.visitorId);
+        persistVisitorId(data.visitorId);
       }
       if (data.sessionId) {
         setSessionId(data.sessionId);
@@ -113,5 +100,5 @@ export function useSocket(settings) {
     };
   }, [settings]);
 
-  return { socket: socketRef, storeId, shopperId, sessionId, remoteConfig };
+  return { socket: socketRef, storeId, visitorId, sessionId, remoteConfig };
 }
