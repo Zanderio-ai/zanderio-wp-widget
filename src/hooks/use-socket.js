@@ -23,6 +23,7 @@ export function useSocket(settings) {
   const [visitorId, setVisitorId] = useState(getVisitorId());
   const [sessionId, setSessionId] = useState(null);
   const [remoteConfig, setRemoteConfig] = useState(null);
+  const [token, setToken] = useState(null);
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_SOCKET_URL || settings.socketUrl;
@@ -57,6 +58,10 @@ export function useSocket(settings) {
         setSessionId(data.sessionId);
       }
 
+      if (data.token) {
+        setToken(data.token);
+      }
+
       const resolved = data.storeId || data.widget?.store_id;
       if (resolved) setStoreId(resolved);
     };
@@ -75,6 +80,14 @@ export function useSocket(settings) {
       if (data.sessionId) {
         setSessionId(data.sessionId);
       }
+      if (data.token) {
+        setToken(data.token);
+      }
+    });
+
+    socket.on("widget:token:refreshed", (response) => {
+      const jwt = response?.data?.token || response?.token;
+      if (jwt) setToken(jwt);
     });
 
     socket.on("connect_error", (err) =>
@@ -94,11 +107,19 @@ export function useSocket(settings) {
       socket.off("widget:config:response");
       socket.off("SESSION_STARTED");
       socket.off("widget:session:started");
+      socket.off("widget:token:refreshed");
       socket.off("widget:config:invalidated");
       socket.off("connect_error");
       socket.disconnect();
     };
   }, [settings]);
 
-  return { socket: socketRef, storeId, visitorId, sessionId, remoteConfig };
+  return {
+    socket: socketRef,
+    storeId,
+    visitorId,
+    sessionId,
+    remoteConfig,
+    token,
+  };
 }

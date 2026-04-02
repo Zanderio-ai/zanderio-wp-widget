@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.1.0
+ * Version:      1.2.0
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later

@@ -20,10 +20,12 @@
 import { useEffect, useRef } from "react";
 import MessageBubble from "../messages/message-bubble";
 import TypingIndicator from "../messages/typing-indicator";
+import ThinkingStatus from "../messages/thinking-status";
 
 export default function MessageList({
   messages,
   isLoading,
+  thinkingStatus,
   widgetConfig,
   onAddToCart,
   onSendMessage,
@@ -55,7 +57,13 @@ export default function MessageList({
           />
         </div>
       ))}
-      {isLoading && <TypingIndicator />}
+      {isLoading &&
+        !messages.some((m) => m.isStreaming) &&
+        (thinkingStatus ? (
+          <ThinkingStatus status={thinkingStatus} />
+        ) : (
+          <TypingIndicator />
+        ))}
       <div ref={bottomRef} />
     </div>
   );

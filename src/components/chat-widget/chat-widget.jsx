@@ -21,8 +21,10 @@
 
 import { useState } from "react";
 import { getPositionStyle, getChatWindowStyle } from "../../utils/position";
+import { useProactiveEngagement } from "../../hooks/use-proactive-engagement";
 import ChatWindow from "./chat-window";
 import ToggleButton from "./toggle-button";
+import ProactiveBubble from "./proactive-bubble";
 import Toast from "../toast/toast";
 
 export default function ChatWidget({
@@ -32,12 +34,19 @@ export default function ChatWidget({
   sendMessage,
   isLoading,
   isTyping,
+  thinkingStatus,
+  conversationEnded,
+  startNewChat,
   isMobile,
   onAddToCart,
   toast,
   onShowToast,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { bubbleMessage, dismissBubble } = useProactiveEngagement(
+    widgetConfig.proactive,
+    isOpen,
+  );
 
   const currentPosition = isMobile
     ? widgetConfig.mobilePosition || "bottom-center"
@@ -55,11 +64,22 @@ export default function ChatWidget({
           messages={messages}
           isLoading={isLoading}
           isTyping={isTyping}
+          thinkingStatus={thinkingStatus}
+          conversationEnded={conversationEnded}
+          startNewChat={startNewChat}
           onSend={sendMessage}
           onClose={() => setIsOpen(false)}
           onAddToCart={onAddToCart}
           onShowToast={onShowToast}
           style={windowStyle}
+        />
+      )}
+
+      {!isOpen && bubbleMessage && (
+        <ProactiveBubble
+          message={bubbleMessage}
+          onDismiss={dismissBubble}
+          color={widgetConfig.color}
         />
       )}
 

@@ -3,16 +3,22 @@
  *
  * Renders interactive action-type messages returned by the AI backend.
  *
- * Current action types:
- *   cart     - Shopify cart add or fallback link
- *   link     - Opens any URL in new tab
- *   book     - Opens booking URL in new tab
- *   contact  - Email mailto or phone tel link
+ * Action types:
+ *   cart      - Shopify cart add or fallback link
+ *   book      - Opens booking URL in new tab
+ *   call      - Phone tel: link
+ *   email     - Email mailto: link
+ *   whatsapp  - Opens WhatsApp chat URL
+ *   form      - Opens form / contact page URL
+ *   pay       - Opens payment link
+ *   review    - Opens review page
+ *   map       - Opens directions / location
+ *   social    - Opens social profile
+ *   link      - Opens any URL in new tab
  *
  * Legacy action types (still supported for backward compat):
- *   add-to-cart, view-product, book-appointment, contact-us,
- *   browse-category, visit-link, calendly, lead_form,
- *   add_to_cart, email, phone
+ *   add-to-cart, add_to_cart, view-product, book-appointment, contact-us,
+ *   browse-category, visit-link, calendly, lead_form, contact, phone
  *
  * @param {{ msg, onSendMessage, onShowToast }} props
  * @module components/messages/action-message
@@ -24,8 +30,52 @@ import {
   IoCallOutline,
   IoMailOutline,
   IoCalendarOutline,
+  IoLogoWhatsapp,
+  IoDocumentTextOutline,
+  IoCardOutline,
+  IoStarOutline,
+  IoLocationOutline,
+  IoShareSocialOutline,
 } from "react-icons/io5";
 import LeadForm from "./lead-form";
+
+const ICON_SIZE = 14;
+const ICON_STYLE = { marginRight: "6px" };
+
+function OpenButton({ url, label, icon, onSendMessage }) {
+  if (url) {
+    return (
+      <button
+        className="action-button"
+        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+      >
+        {icon}
+        {label}
+      </button>
+    );
+  }
+  return (
+    <button className="action-button" onClick={() => onSendMessage(label)}>
+      {label}
+    </button>
+  );
+}
+
+function LinkButton({ url, label, icon, onSendMessage }) {
+  if (url) {
+    return (
+      <a className="action-button action-button--link" href={url}>
+        {icon}
+        {label}
+      </a>
+    );
+  }
+  return (
+    <button className="action-button" onClick={() => onSendMessage(label)}>
+      {label}
+    </button>
+  );
+}
 
 export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
   const { action_type, label, url, email, product_id, metadata = {} } = msg;
@@ -72,53 +122,144 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
     action_type === "calendly"
   ) {
     return (
-      <button
-        className="action-button"
-        onClick={() => {
-          if (url) window.open(url, "_blank", "noopener,noreferrer");
-          else onSendMessage(label);
-        }}
-      >
-        <IoCalendarOutline size={14} style={{ marginRight: "6px" }} />
-        {label}
-      </button>
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoCalendarOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "call" || action_type === "phone") {
+    return (
+      <LinkButton
+        url={url}
+        label={label}
+        icon={<IoCallOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "email") {
+    return (
+      <LinkButton
+        url={url || (email ? `mailto:${email}` : null)}
+        label={label}
+        icon={<IoMailOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "whatsapp") {
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoLogoWhatsapp size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "form" || action_type === "lead_form") {
+    if (action_type === "lead_form" || (!url && action_type === "form")) {
+      return (
+        <LeadForm
+          label={label}
+          metadata={metadata}
+          onSubmit={(data) => {
+            onSendMessage(
+              `Quote request submitted: ${data.name} <${data.email}>${data.message ? " - " + data.message : ""}`,
+            );
+          }}
+        />
+      );
+    }
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoDocumentTextOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "pay") {
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoCardOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "review") {
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoStarOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "map") {
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoLocationOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
+
+  if (action_type === "social") {
+    return (
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoShareSocialOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
     );
   }
 
   if (action_type === "contact" || action_type === "contact-us") {
     if (url && url.startsWith("tel:")) {
       return (
-        <a className="action-button action-button--link" href={url}>
-          <IoCallOutline size={14} style={{ marginRight: "6px" }} />
-          {label}
-        </a>
+        <LinkButton
+          url={url}
+          label={label}
+          icon={<IoCallOutline size={ICON_SIZE} style={ICON_STYLE} />}
+          onSendMessage={onSendMessage}
+        />
       );
     }
-
     if (url && url.startsWith("mailto:")) {
       return (
-        <a className="action-button action-button--link" href={url}>
-          <IoMailOutline size={14} style={{ marginRight: "6px" }} />
-          {label}
-        </a>
+        <LinkButton
+          url={url}
+          label={label}
+          icon={<IoMailOutline size={ICON_SIZE} style={ICON_STYLE} />}
+          onSendMessage={onSendMessage}
+        />
       );
     }
-
-    if (url) {
-      return (
-        <button
-          className="action-button"
-          onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-        >
-          {label}
-        </button>
-      );
-    }
-
     return (
-      <button className="action-button" onClick={() => onSendMessage(label)}>
-        {label}
-      </button>
+      <OpenButton
+        url={url}
+        label={label}
+        icon={<IoMailOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
+      />
     );
   }
 
@@ -128,59 +269,17 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
     action_type === "view-product" ||
     action_type === "browse-category"
   ) {
-    if (url) {
-      return (
-        <button
-          className="action-button"
-          onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-        >
-          <IoOpenOutline size={14} style={{ marginRight: "6px" }} />
-          {label}
-        </button>
-      );
-    }
     return (
-      <button className="action-button" onClick={() => onSendMessage(label)}>
-        {label}
-      </button>
-    );
-  }
-
-  if (action_type === "lead_form") {
-    return (
-      <LeadForm
+      <OpenButton
+        url={url}
         label={label}
-        metadata={metadata}
-        onSubmit={(data) => {
-          onSendMessage(
-            `Quote request submitted: ${data.name} <${data.email}>${data.message ? " - " + data.message : ""}`,
-          );
-        }}
+        icon={<IoOpenOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        onSendMessage={onSendMessage}
       />
     );
   }
 
-  if (action_type === "email") {
-    return (
-      <a
-        className="action-button action-button--link"
-        href={url || `mailto:${email}`}
-      >
-        <IoMailOutline size={14} style={{ marginRight: "6px" }} />
-        {label}
-      </a>
-    );
-  }
-
-  if (action_type === "phone") {
-    return (
-      <a className="action-button action-button--link" href={url}>
-        <IoCallOutline size={14} style={{ marginRight: "6px" }} />
-        {label}
-      </a>
-    );
-  }
-
+  // Fallback
   return (
     <button
       className="action-button"

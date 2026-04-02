@@ -9,6 +9,8 @@
  *   | product_card   | ProductCard      |
  *   | products       | ProductCarousel  |
  *   | action         | ActionMessage    |
+ *   | suggestions    | SuggestedReplies |
+ *   | feedback_request | FeedbackButtons |
  *   | *(default)*    | TextMessage      |
  *
  * This keeps the MessageList agnostic of message types — it just maps
@@ -21,6 +23,8 @@
 
 import TextMessage from "./text-message";
 import ActionMessage from "./action-message";
+import SuggestedReplies from "./suggested-replies";
+import FeedbackButtons from "./feedback-buttons";
 import ProductCard from "../products/product-card";
 import ProductCarousel from "../products/product-carousel";
 
@@ -52,6 +56,18 @@ export default function MessageBubble({
           msg={msg}
           onSendMessage={onSendMessage}
           onShowToast={onShowToast}
+        />
+      );
+
+    case "suggestions":
+      return <SuggestedReplies items={msg.items} onSend={onSendMessage} />;
+
+    case "feedback_request":
+      return (
+        <FeedbackButtons
+          traceId={msg.traceId}
+          aiUrl={msg.aiUrl}
+          token={msg.token}
         />
       );
 

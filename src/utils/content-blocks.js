@@ -18,9 +18,10 @@ export function normalizeProduct(p) {
     id: p.id,
     title: p.title,
     image: p.image || p.images?.[0] || null,
-    price: p.price ? `$${p.price}` : "N/A",
+    price: p.price != null ? Number(p.price) : null,
     compare_at_price:
-      p.compare_at_price != null ? `$${p.compare_at_price}` : null,
+      p.compare_at_price != null ? Number(p.compare_at_price) : null,
+    currency: p.currency || "USD",
     url: p.url,
     in_stock: p.in_stock,
   };

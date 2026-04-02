@@ -10,6 +10,9 @@
  * |-------------------|-----------------------|-----------------------|
  * | Headings (1-3)    | `# Title`             | `<div>` with bold     |
  * | Bold              | `**text**`            | `<strong>`            |
+ * | Italic            | `*text*`              | `<em>`                |
+ * | Links             | `[text](url)`         | `<a>`                 |
+ * | Bullet lists      | `- item` or `* item`  | `<ul><li>`            |
  * | Images            | `![alt](url)`         | `<img>` or shimmer    |
  *
  * Typing mode
@@ -19,15 +22,46 @@
  * animation is still running.  Once the animation finishes the hook swaps in
  * the full text (including image markdown) which then renders the real `<img>`.
  *
- * The function splits the input on newlines and processes each line top-down:
- *   1. Check for image markdown  → render `<img>` or shimmer
- *   2. Check for heading prefix  → render bold `<div>`
- *   3. Fallback                  → render inline bold spans with `<br>` joins
- *
  * @module utils/markdown
  */
 
 import React from "react";
+
+/**
+ * Renders inline markdown tokens (bold, italic, links) within a line.
+ */
+function renderInline(text, keyPrefix) {
+  // Match **bold**, *italic*, and [text](url)
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    const key = `${keyPrefix}-${i}`;
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={key} style={{ fontWeight: "600" }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={key}>{part.slice(1, -1)}</em>;
+    }
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={key}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "inherit", textDecoration: "underline" }}
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
+    return <span key={key}>{part}</span>;
+  });
+}
 
 /**
  * Converts a markdown-like string into an array of React elements.
@@ -41,14 +75,47 @@ export function renderMarkdown(text, isTyping = false) {
   if (!text) return text;
 
   const lines = text.split("\n");
+  const elements = [];
+  let listItems = [];
 
-  return lines.map((line, lineIndex) => {
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul
+          key={`ul-${elements.length}`}
+          style={{ margin: "4px 0", paddingLeft: "20px" }}
+        >
+          {listItems}
+        </ul>,
+      );
+      listItems = [];
+    }
+  };
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+
+    // Bullet list item: "- text" or "* text" (but not "**bold**")
+    const bulletMatch = line.match(/^[\-\*]\s+(.+)/);
+    if (bulletMatch && !line.startsWith("**")) {
+      listItems.push(
+        <li key={`li-${lineIndex}`}>
+          {renderInline(bulletMatch[1], `li-${lineIndex}`)}
+        </li>,
+      );
+      continue;
+    }
+
+    // Flush any pending list before rendering non-list content
+    flushList();
+
+    // Image
     const imageMatch = line.match(/!\[(.*?)\]\((.*?)\)/);
     if (imageMatch) {
       const [, altText, imageUrl] = imageMatch;
 
       if (isTyping) {
-        return (
+        elements.push(
           <div key={lineIndex} style={{ margin: "8px 0" }}>
             <div
               style={{
@@ -63,30 +130,32 @@ export function renderMarkdown(text, isTyping = false) {
                 animation: "shimmer 1.5s infinite",
               }}
             />
-          </div>
+          </div>,
+        );
+      } else {
+        elements.push(
+          <div key={lineIndex} style={{ margin: "8px 0" }}>
+            <img
+              src={imageUrl}
+              alt={altText}
+              style={{
+                width: "120px",
+                height: "120px",
+                borderRadius: "8px",
+                objectFit: "cover",
+              }}
+            />
+          </div>,
         );
       }
-
-      return (
-        <div key={lineIndex} style={{ margin: "8px 0" }}>
-          <img
-            src={imageUrl}
-            alt={altText}
-            style={{
-              width: "120px",
-              height: "120px",
-              borderRadius: "8px",
-              objectFit: "cover",
-            }}
-          />
-        </div>
-      );
+      continue;
     }
 
+    // Heading
     const headingMatch = line.match(/^(#{1,3})\s+(.+)/);
     if (headingMatch) {
       const level = headingMatch[1].length;
-      return (
+      elements.push(
         <div
           key={lineIndex}
           style={{
@@ -96,24 +165,20 @@ export function renderMarkdown(text, isTyping = false) {
           }}
         >
           {headingMatch[2]}
-        </div>
+        </div>,
       );
+      continue;
     }
 
-    return (
+    // Regular line with inline formatting
+    elements.push(
       <span key={lineIndex}>
         {lineIndex > 0 && <br />}
-        {line.split(/(\*\*.*?\*\*)/g).map((part, i) => {
-          if (part.startsWith("**") && part.endsWith("**")) {
-            return (
-              <strong key={i} style={{ fontWeight: "600" }}>
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          return <span key={i}>{part}</span>;
-        })}
-      </span>
+        {renderInline(line, `line-${lineIndex}`)}
+      </span>,
     );
-  });
+  }
+
+  flushList();
+  return elements;
 }

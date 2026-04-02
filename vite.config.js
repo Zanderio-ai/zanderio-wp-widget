@@ -37,6 +37,11 @@ const SOCKET_URLS = {
   prod: "https://ws.zanderio.ai/widget",
 };
 
+const AI_URLS = {
+  dev: "https://dev-agent.zanderio.ai",
+  prod: "https://agent.zanderio.ai",
+};
+
 const TARGETS = {
   cdn: {
     outDir: "dist",
@@ -96,6 +101,7 @@ export default defineConfig({
     "import.meta.env.VITE_SOCKET_URL": JSON.stringify(
       SOCKET_URLS[env] || SOCKET_URLS.dev,
     ),
+    "import.meta.env.VITE_AI_URL": JSON.stringify(AI_URLS[env] || AI_URLS.dev),
     "import.meta.env.VITE_FARO_COLLECTOR_URL": JSON.stringify(
       process.env.VITE_FARO_COLLECTOR_URL || "",
     ),

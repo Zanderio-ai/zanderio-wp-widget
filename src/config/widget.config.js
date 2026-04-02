@@ -26,6 +26,7 @@ const DEFAULTS = {
   apiRoot: import.meta.env.VITE_API_BASE_URL || "https://dev-api.zanderio.ai",
   socketUrl:
     import.meta.env.VITE_SOCKET_URL || "https://dev-ws.zanderio.ai/widget",
+  aiUrl: import.meta.env.VITE_AI_URL || "https://dev-agent.zanderio.ai",
 };
 
 /**

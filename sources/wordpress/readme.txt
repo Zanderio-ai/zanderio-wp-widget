@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,19 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.2.0 =
+* Full AI streaming support — real-time SSE responses via fetch + ReadableStream.
+* Thread persistence — conversation history survives page reloads.
+* JWT authentication for secure AI streaming sessions.
+* Thinking status indicators — contextual labels while the AI processes.
+* Conversation lifecycle — end states, "Start New Chat" button.
+* Proactive engagement — configurable bubble to encourage visitors to chat.
+* Feedback buttons — thumbs up/down on AI responses.
+* Suggestion chips — quick-reply options from the AI.
+* Error handling — friendly messages for 401/403/429/5xx responses.
+* Streaming cursor animation and error message styling.
+* Nested config support for updated backend schema.
 
 = 1.1.0 =
 * Widget JS is now bundled inside the plugin zip (assets/widget.js) — no

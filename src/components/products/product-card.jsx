@@ -40,21 +40,24 @@ const ProductCard = ({ product, isSingle = false }) => {
 
   const formatPrice = () => {
     if (product.price == null) return null;
-    // const currency = product.currency || "USD";
-    const formatted =
-      typeof product.price === "string" && product.price.startsWith("$")
-        ? product.price
-        : `$${product.price}`;
+    const currency = product.currency || "USD";
+    const fmt = (value) => {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency,
+        }).format(Number(value));
+      } catch {
+        return `${value}`;
+      }
+    };
+    const formatted = fmt(product.price);
 
     if (
       product.compare_at_price != null &&
       product.compare_at_price > product.price
     ) {
-      const compareFormatted =
-        typeof product.compare_at_price === "string" &&
-        product.compare_at_price.startsWith("$")
-          ? product.compare_at_price
-          : `$${product.compare_at_price}`;
+      const compareFormatted = fmt(product.compare_at_price);
       return (
         <>
           <span className="product-price-current">{formatted}</span>

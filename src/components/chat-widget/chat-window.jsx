@@ -28,6 +28,9 @@ export default function ChatWindow({
   messages,
   isLoading,
   isTyping,
+  thinkingStatus,
+  conversationEnded,
+  startNewChat,
   onSend,
   onClose,
   onAddToCart,
@@ -47,6 +50,7 @@ export default function ChatWindow({
       <MessageList
         messages={messages}
         isLoading={isLoading}
+        thinkingStatus={thinkingStatus}
         widgetConfig={widgetConfig}
         onAddToCart={onAddToCart}
         onSendMessage={onSend}
@@ -55,9 +59,19 @@ export default function ChatWindow({
 
       <InputBar
         onSend={onSend}
-        disabled={isLoading || isTyping}
+        disabled={isLoading || isTyping || !!conversationEnded}
         color={widgetConfig.color}
       />
+
+      {conversationEnded && (
+        <button
+          className="new-chat-btn"
+          onClick={startNewChat}
+          style={{ backgroundColor: widgetConfig.color }}
+        >
+          Start New Chat
+        </button>
+      )}
 
       <div className="powered-by">
         <div

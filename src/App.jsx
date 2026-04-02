@@ -31,14 +31,22 @@ import ChatWidget from "./components/chat-widget/chat-widget";
 
 export default function App({ settings }) {
   const { isMobile } = useResponsive();
-  const { socket, storeId, visitorId, sessionId, remoteConfig } =
+  const { socket, storeId, visitorId, sessionId, remoteConfig, token } =
     useSocket(settings);
   const { widgetConfig, isConfigReady } = useWidgetConfig(
     settings,
     remoteConfig,
   );
-  const { messages, sendMessage, isLoading, isTyping, updateWelcomeMessage } =
-    useChat(storeId, visitorId, sessionId, settings);
+  const {
+    messages,
+    sendMessage,
+    isLoading,
+    isTyping,
+    thinkingStatus,
+    conversationEnded,
+    startNewChat,
+    updateWelcomeMessage,
+  } = useChat(storeId, visitorId, sessionId, settings, { socket, token });
   const { addToCart, toast, showToast } = useCart();
 
   useEffect(() => {
@@ -55,6 +63,9 @@ export default function App({ settings }) {
       sendMessage={sendMessage}
       isLoading={isLoading}
       isTyping={isTyping}
+      thinkingStatus={thinkingStatus}
+      conversationEnded={conversationEnded}
+      startNewChat={startNewChat}
       isMobile={isMobile}
       onAddToCart={addToCart}
       toast={toast}

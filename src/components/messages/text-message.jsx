@@ -15,9 +15,18 @@
 import { renderMarkdown } from "../../utils/markdown.jsx";
 
 export default function TextMessage({ msg, color }) {
+  const classes = [
+    "message",
+    msg.sender,
+    msg.isStreaming && "streaming",
+    msg.isError && "error-message",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className={`message ${msg.sender}`}
+      className={classes}
       style={msg.sender === "user" ? { backgroundColor: color } : undefined}
     >
       {renderMarkdown(msg.text, msg.isTyping)}
