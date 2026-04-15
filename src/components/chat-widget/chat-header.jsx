@@ -14,16 +14,16 @@ import { CloseIcon } from "../icons";
 
 export default function ChatHeader({ name, icon, color, onClose, isConfigReady }) {
   return (
-    <div className="chat-header" style={{ backgroundColor: isConfigReady ? color : undefined }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+    <div className="chat-header" style={{ backgroundColor: isConfigReady ? "var(--widget-accent)" : undefined }}>
+      <div className="chat-header__brand">
         {isConfigReady ? (
           <>
             <img
               src={icon}
               alt={name}
-              style={{ width: "24px", height: "24px", borderRadius: "50%" }}
+              className="chat-header__avatar"
             />
-            <h3>{name}</h3>
+            <h3 className="chat-header__name">{name}</h3>
           </>
         ) : (
           <>
@@ -32,7 +32,7 @@ export default function ChatHeader({ name, icon, color, onClose, isConfigReady }
           </>
         )}
       </div>
-      <button onClick={onClose} className="icon-btn">
+      <button type="button" onClick={onClose} className="icon-btn">
         <CloseIcon />
       </button>
     </div>

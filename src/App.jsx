@@ -47,7 +47,7 @@ export default function App({ settings }) {
     startNewChat,
     updateWelcomeMessage,
   } = useChat(storeId, visitorId, sessionId, settings, { socket, token });
-  const { addToCart, toast, showToast } = useCart();
+  const { addToCart, toast, showToast } = useCart(settings, remoteConfig);
 
   useEffect(() => {
     if (widgetConfig.welcomeMessage) {

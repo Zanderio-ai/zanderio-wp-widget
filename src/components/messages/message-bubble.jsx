@@ -9,8 +9,6 @@
  *   | product_card   | ProductCard      |
  *   | products       | ProductCarousel  |
  *   | action         | ActionMessage    |
- *   | suggestions    | SuggestedReplies |
- *   | feedback_request | FeedbackButtons |
  *   | *(default)*    | TextMessage      |
  *
  * This keeps the MessageList agnostic of message types — it just maps
@@ -27,6 +25,10 @@ import SuggestedReplies from "./suggested-replies";
 import FeedbackButtons from "./feedback-buttons";
 import ProductCard from "../products/product-card";
 import ProductCarousel from "../products/product-carousel";
+
+const CART_ACTION_TYPES = new Set(["cart", "add_to_cart", "add-to-cart"]);
+
+const isCartAction = (actionType) => CART_ACTION_TYPES.has(actionType);
 
 export default function MessageBubble({
   msg,
@@ -51,13 +53,13 @@ export default function MessageBubble({
       return <ProductCarousel products={msg.items} onAddToCart={onAddToCart} />;
 
     case "action":
-      return (
+      return isCartAction(msg.action_type) ? (
         <ActionMessage
           msg={msg}
           onSendMessage={onSendMessage}
           onShowToast={onShowToast}
         />
-      );
+      ) : null;
 
     case "suggestions":
       return <SuggestedReplies items={msg.items} onSend={onSendMessage} />;

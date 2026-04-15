@@ -27,7 +27,14 @@ export default function TextMessage({ msg, color }) {
   return (
     <div
       className={classes}
-      style={msg.sender === "user" ? { backgroundColor: color } : undefined}
+      style={
+        msg.sender === "user"
+          ? {
+              backgroundColor: color || "var(--widget-accent, #7e3ff2)",
+              color: "var(--widget-accent-contrast, #ffffff)",
+            }
+          : undefined
+      }
     >
       {renderMarkdown(msg.text, msg.isTyping)}
     </div>

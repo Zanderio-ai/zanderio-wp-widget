@@ -17,13 +17,22 @@ export function normalizeProduct(p) {
   return {
     id: p.id,
     title: p.title,
-    image: p.image || p.images?.[0] || null,
+    image: p.image || p.image_url || p.imageUrl || p.images?.[0] || null,
     price: p.price != null ? Number(p.price) : null,
     compare_at_price:
       p.compare_at_price != null ? Number(p.compare_at_price) : null,
     currency: p.currency || "USD",
-    url: p.url,
+    url: p.url || p.product_url || p.productUrl || null,
     in_stock: p.in_stock,
+    variant_label: p.variant_label || null,
+    variant_summary: p.variant_summary || null,
+    variant_count: p.variant_count || 0,
+    colors: Array.isArray(p.colors) ? p.colors : [],
+    sizes: Array.isArray(p.sizes) ? p.sizes : [],
+    materials: Array.isArray(p.materials) ? p.materials : [],
+    sku: p.sku || null,
+    matched_variant_id: p.matched_variant_id || null,
+    option_groups: Array.isArray(p.option_groups) ? p.option_groups : [],
   };
 }
 
@@ -127,7 +136,11 @@ export function parseActions(actions) {
     type: "action",
     action_type: action.type,
     label: action.label,
-    url: action.url || null,
-    product_id: action.product_id || null,
+    url: action.url || action.payload?.url || null,
+    product_id: action.product_id || action.payload?.product_id || null,
+    email: action.email || action.payload?.email || null,
+    ...(action.metadata || action.payload
+      ? { metadata: action.metadata || action.payload }
+      : {}),
   }));
 }

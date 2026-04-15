@@ -14,22 +14,60 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { parseActions, normalizeProduct } from "../utils/content-blocks";
+import {
+  createApiClient,
+  getConversationMessages,
+} from "../services/api.service";
 
 const THREAD_KEY_PREFIX = "zanderio_thread_";
+const CONVERSATION_KEY_PREFIX = "zanderio_conversation_";
 
-function getPersistedThreadId(storeId) {
-  if (!storeId) return null;
-  return localStorage.getItem(`${THREAD_KEY_PREFIX}${storeId}`) || null;
+function getStorageScope(storeId, visitorId) {
+  if (!storeId || !visitorId) {
+    return null;
+  }
+
+  return `${storeId}_${visitorId}`;
 }
 
-function persistThreadId(storeId, threadId) {
-  if (storeId && threadId) {
-    localStorage.setItem(`${THREAD_KEY_PREFIX}${storeId}`, threadId);
+function getPersistedThreadId(storeId, visitorId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (!scope) return null;
+  return localStorage.getItem(`${THREAD_KEY_PREFIX}${scope}`) || null;
+}
+
+function getPersistedConversationId(storeId, visitorId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (!scope) return null;
+  return localStorage.getItem(`${CONVERSATION_KEY_PREFIX}${scope}`) || null;
+}
+
+function persistThreadId(storeId, visitorId, threadId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (scope && threadId) {
+    localStorage.setItem(`${THREAD_KEY_PREFIX}${scope}`, threadId);
   }
 }
 
-function clearThreadId(storeId) {
-  if (storeId) localStorage.removeItem(`${THREAD_KEY_PREFIX}${storeId}`);
+function persistConversationId(storeId, visitorId, conversationId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (scope && conversationId) {
+    localStorage.setItem(`${CONVERSATION_KEY_PREFIX}${scope}`, conversationId);
+  }
+}
+
+function clearThreadId(storeId, visitorId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (scope) {
+    localStorage.removeItem(`${THREAD_KEY_PREFIX}${scope}`);
+  }
+}
+
+function clearConversationId(storeId, visitorId) {
+  const scope = getStorageScope(storeId, visitorId);
+  if (scope) {
+    localStorage.removeItem(`${CONVERSATION_KEY_PREFIX}${scope}`);
+  }
 }
 
 function generateThreadId(storeId) {
@@ -65,6 +103,60 @@ function parseSSE(text) {
   return events;
 }
 
+function normalizeHistoryMessages(history = []) {
+  const restored = [];
+
+  for (const message of history) {
+    const senderType = message?.sender?.type;
+    const sender =
+      senderType === "agent" || senderType === "ai" ? "bot" : "user";
+
+    if (message?.content) {
+      restored.push({
+        id: Date.now() + Math.random(),
+        text: message.content,
+        sender,
+        type: "text",
+      });
+    }
+
+    if (sender !== "bot") {
+      continue;
+    }
+
+    if (Array.isArray(message?.products) && message.products.length > 0) {
+      restored.push({
+        id: Date.now() + Math.random(),
+        sender: "bot",
+        type: "products",
+        items: message.products.map(normalizeProduct),
+      });
+    }
+
+    if (Array.isArray(message?.actions) && message.actions.length > 0) {
+      const parsedActions = parseActions(message.actions);
+      restored.push(
+        ...parsedActions.map((action) => ({
+          id: Date.now() + Math.random(),
+          sender: "bot",
+          ...action,
+        })),
+      );
+    }
+
+    if (Array.isArray(message?.suggestions) && message.suggestions.length > 0) {
+      restored.push({
+        id: Date.now() + Math.random(),
+        sender: "bot",
+        type: "suggestions",
+        items: message.suggestions,
+      });
+    }
+  }
+
+  return restored;
+}
+
 export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const { socket, token } = deps;
   const [messages, setMessages] = useState([
@@ -80,8 +172,10 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const [thinkingStatus, setThinkingStatus] = useState(null);
   const [conversationEnded, setConversationEnded] = useState(null); // { reason, message }
   const threadIdRef = useRef(null);
+  const conversationIdRef = useRef(null);
   const abortRef = useRef(null);
   const historyLoadedRef = useRef(false);
+  const historyScopeRef = useRef(null);
   const tokenRef = useRef(token);
   const lastTraceIdRef = useRef(null);
 
@@ -94,6 +188,10 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     import.meta.env.VITE_AI_URL ||
     settings.aiUrl ||
     "https://dev-agent.zanderio.ai";
+  const apiUrl =
+    settings.apiRoot ||
+    import.meta.env.VITE_API_BASE_URL ||
+    "https://dev-api.zanderio.ai";
 
   const updateWelcomeMessage = useCallback((msg) => {
     setMessages((prev) => {
@@ -104,88 +202,88 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     });
   }, []);
 
+  useEffect(() => {
+    const scope = getStorageScope(storeId, visitorId);
+    if (historyScopeRef.current === scope) {
+      return;
+    }
+
+    historyScopeRef.current = scope;
+    historyLoadedRef.current = false;
+
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+
+    threadIdRef.current = getPersistedThreadId(storeId, visitorId);
+    conversationIdRef.current = getPersistedConversationId(storeId, visitorId);
+    lastTraceIdRef.current = null;
+
+    setMessages([
+      {
+        id: 1,
+        text: settings.welcomeMessage || "Hi there!",
+        sender: "bot",
+        type: "text",
+      },
+    ]);
+    setIsLoading(false);
+    setIsTyping(false);
+    setThinkingStatus(null);
+    setConversationEnded(null);
+  }, [storeId, visitorId, settings.welcomeMessage]);
+
   // ── Restore thread + message history on mount ──
   useEffect(() => {
-    if (!storeId || historyLoadedRef.current) return;
+    if (!storeId || !visitorId || historyLoadedRef.current || !token) return;
     historyLoadedRef.current = true;
 
-    const existing = getPersistedThreadId(storeId);
-    if (!existing || !tokenRef.current) return;
-
+    const existing = getPersistedThreadId(storeId, visitorId);
     threadIdRef.current = existing;
+    conversationIdRef.current = getPersistedConversationId(storeId, visitorId);
 
     const controller = new AbortController();
 
-    fetch(
-      `${aiUrl}/threads/${existing}/state?store_id=${encodeURIComponent(storeId)}`,
-      {
-        headers: { Authorization: `Bearer ${tokenRef.current}` },
-        signal: controller.signal,
-      },
-    )
-      .then((res) => {
-        if (res.status === 404) {
-          clearThreadId(storeId);
-          threadIdRef.current = null;
-          return null;
-        }
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then((state) => {
-        if (!state?.values?.messages) return;
+    (async () => {
+      try {
+        const client = createApiClient(apiUrl);
+        const requestConfig = {
+          headers: { Authorization: `Bearer ${tokenRef.current}` },
+          signal: controller.signal,
+        };
 
-        const historyMessages = [];
-        for (const msg of state.values.messages) {
-          if (msg.type === "human" && msg.content) {
-            historyMessages.push({
-              id: Date.now() + Math.random(),
-              text: msg.content,
-              sender: "user",
-              type: "text",
-            });
-          } else if (msg.type === "ai" && msg.content) {
-            historyMessages.push({
-              id: Date.now() + Math.random(),
-              sender: "bot",
-              type: "text",
-              text: msg.content,
-            });
+        let restoredMessages = [];
+        const persistedConversationId = conversationIdRef.current;
+
+        if (persistedConversationId) {
+          try {
+            const response = await getConversationMessages(
+              client,
+              { conversationId: persistedConversationId },
+              requestConfig,
+            );
+            restoredMessages = normalizeHistoryMessages(
+              response?.data?.data?.messages || [],
+            );
+          } catch (error) {
+            if (error?.response?.status === 404) {
+              clearConversationId(storeId, visitorId);
+              conversationIdRef.current = null;
+            }
           }
         }
 
-        // Products from state
-        if (state.values.products?.length) {
-          historyMessages.push({
-            id: Date.now() + Math.random(),
-            sender: "bot",
-            type: "products",
-            items: state.values.products.map(normalizeProduct),
-          });
+        if (restoredMessages.length > 0) {
+          setMessages((prev) => [...prev, ...restoredMessages]);
         }
-
-        // Actions from state
-        if (state.values.actions?.length) {
-          const parsedActions = parseActions(state.values.actions);
-          for (const action of parsedActions) {
-            historyMessages.push({
-              id: Date.now() + Math.random(),
-              sender: "bot",
-              ...action,
-            });
-          }
-        }
-
-        if (historyMessages.length > 0) {
-          setMessages((prev) => [...prev, ...historyMessages]);
-        }
-      })
-      .catch(() => {
+      } catch {
         /* history load failed silently */
-      });
+      }
+    })();
 
     return () => controller.abort();
-  }, [storeId, aiUrl]);
+  }, [apiUrl, storeId, token, visitorId]);
 
   // ── Request a fresh token via Socket.IO ──
   const requestTokenRefresh = useCallback(() => {
@@ -203,7 +301,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
       // Ensure thread ID
       if (!threadIdRef.current) {
         threadIdRef.current = generateThreadId(storeId);
-        persistThreadId(storeId, threadIdRef.current);
+        persistThreadId(storeId, visitorId, threadIdRef.current);
       }
 
       // Append user message
@@ -321,14 +419,24 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
                     m.id === botMsgId ? { ...m, text: accumulatedText } : m,
                   ),
                 );
+              } else if (evt.event === "messages/replace") {
+                if (evt.data?.content) {
+                  accumulatedText = evt.data.content;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === botMsgId ? { ...m, text: accumulatedText } : m,
+                    ),
+                  );
+                }
               } else if (evt.event === "thinking") {
                 const status = evt.data?.status;
                 if (status) setThinkingStatus(status);
               } else if (evt.event === "updates") {
                 if (evt.data && typeof evt.data === "object") {
                   for (const nodeData of Object.values(evt.data)) {
-                    if (nodeData?.products?.length) {
-                      accumulatedProducts = nodeData.products;
+                    const prods = nodeData?.products || nodeData?.cards;
+                    if (prods?.length) {
+                      accumulatedProducts = prods;
                     }
                     if (nodeData?.actions?.length) {
                       accumulatedActions = nodeData.actions;
@@ -342,6 +450,14 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
                 // Capture trace_id for feedback
                 if (evt.data?.trace_id) {
                   lastTraceIdRef.current = evt.data.trace_id;
+                }
+                if (evt.data?.conversation_id) {
+                  conversationIdRef.current = evt.data.conversation_id;
+                  persistConversationId(
+                    storeId,
+                    visitorId,
+                    evt.data.conversation_id,
+                  );
                 }
 
                 setThinkingStatus(null);
@@ -493,8 +609,10 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   );
 
   const startNewChat = useCallback(() => {
-    clearThreadId(storeId);
+    clearThreadId(storeId, visitorId);
+    clearConversationId(storeId, visitorId);
     threadIdRef.current = null;
+    conversationIdRef.current = null;
     setMessages([
       {
         id: 1,
@@ -504,7 +622,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
       },
     ]);
     setConversationEnded(null);
-  }, [storeId, settings.welcomeMessage]);
+  }, [storeId, visitorId, settings.welcomeMessage]);
 
   return {
     messages,

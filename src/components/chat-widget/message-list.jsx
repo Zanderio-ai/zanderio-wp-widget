@@ -31,32 +31,58 @@ export default function MessageList({
   onSendMessage,
   onShowToast,
 }) {
-  const bottomRef = useRef(null);
+  const messagesRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
+
+  const updateAutoScrollState = () => {
+    const container = messagesRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom <= 120;
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const container = messagesRef.current;
+    if (!container || !shouldAutoScrollRef.current) return undefined;
+
+    const frameId = requestAnimationFrame(() => {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [messages, isLoading, thinkingStatus]);
 
   return (
-    <div className="chat-messages">
-      {messages.map((msg) => (
-        <div
-          key={msg.id}
-          style={{
-            display: "flex",
-            marginBottom: "1rem",
-            justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
-          }}
-        >
-          <MessageBubble
-            msg={msg}
-            widgetConfig={widgetConfig}
-            onAddToCart={onAddToCart}
-            onSendMessage={onSendMessage}
-            onShowToast={onShowToast}
-          />
-        </div>
-      ))}
+    <div
+      className="chat-messages"
+      ref={messagesRef}
+      onScroll={updateAutoScrollState}
+    >
+      {messages.map((msg) => {
+        if (msg.type === "action") {
+          return null;
+        }
+
+        return (
+          <div
+            key={msg.id}
+            style={{
+              display: "flex",
+              marginBottom: "1rem",
+              justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
+            }}
+          >
+            <MessageBubble
+              msg={msg}
+              widgetConfig={widgetConfig}
+              onAddToCart={onAddToCart}
+              onSendMessage={onSendMessage}
+              onShowToast={onShowToast}
+            />
+          </div>
+        );
+      })}
       {isLoading &&
         !messages.some((m) => m.isStreaming) &&
         (thinkingStatus ? (
@@ -64,7 +90,6 @@ export default function MessageList({
         ) : (
           <TypingIndicator />
         ))}
-      <div ref={bottomRef} />
     </div>
   );
 }

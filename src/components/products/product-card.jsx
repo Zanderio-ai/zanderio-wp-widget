@@ -1,41 +1,147 @@
 /**
  * Zanderio Widget — ProductCard
  *
- * Renders a single product inside the chat conversation.  Displays:
+ * Renders a single product inside the chat conversation with a compact
+ * option summary and a cart-only CTA.
  *
- *   • **Image** — single product image with dot indicators when multiple.
- *   • **Price** — overlaid badge on the image.
- *   • **Title** — product name, 2 lines max.
- *   • **Out-of-stock badge** — when `product.in_stock === false`.
- *   • **External link** — small link button to view on the store.
- *
- * Variant selection, swatch pickers, and add-to-cart happen on the
- * product's own page — the card is intentionally lean.
- *
- * When `isSingle` is true the card stretches to fill its container;
- * otherwise it uses the fixed carousel-card width.
- *
- * @param {{ product, isSingle? }} props
+ * @param {{ product, isSingle?, onAddToCart? }} props
  *
  * @module components/products/product-card
  */
 
-import { IoLinkOutline } from "react-icons/io5";
+import { IoCartOutline } from "react-icons/io5";
 
-const ProductCard = ({ product, isSingle = false }) => {
-  const image = product.image || null;
+const pluralize = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
-  const handleLinkClick = (e) => {
-    e.stopPropagation();
-    if (product.url) {
-      window.open(product.url, "_blank", "noopener,noreferrer");
+const buildVariantSummary = (product) => {
+  if (product.variant_summary) {
+    return product.variant_summary;
+  }
+
+  const parts = [];
+  if (Array.isArray(product.colors) && product.colors.length) {
+    parts.push(pluralize(product.colors.length, "color"));
+  }
+  if (Array.isArray(product.sizes) && product.sizes.length) {
+    parts.push(pluralize(product.sizes.length, "size"));
+  }
+  if (Array.isArray(product.materials) && product.materials.length) {
+    parts.push(pluralize(product.materials.length, "material"));
+  }
+
+  if (parts.length > 0) {
+    return `${product.variant_label ? "Also available in" : "Available in"} ${parts.join(" / ")}`;
+  }
+
+  if (product.variant_count > 1) {
+    return `${product.variant_count} variants available`;
+  }
+
+  return null;
+};
+
+const buildFallbackOptionGroups = (product) => {
+  const groups = [];
+
+  if (Array.isArray(product.colors) && product.colors.length) {
+    groups.push({
+      name: "Color",
+      axis: "color",
+      values: product.colors.map((label, index) => ({
+        label,
+        selected: index === 0,
+      })),
+    });
+  }
+
+  if (Array.isArray(product.sizes) && product.sizes.length) {
+    groups.push({
+      name: "Size",
+      axis: "size",
+      values: product.sizes.map((label, index) => ({
+        label,
+        selected: index === 0,
+      })),
+    });
+  }
+
+  if (Array.isArray(product.materials) && product.materials.length) {
+    groups.push({
+      name: "Material",
+      axis: "material",
+      values: product.materials.map((label, index) => ({
+        label,
+        selected: index === 0,
+      })),
+    });
+  }
+
+  return groups;
+};
+
+const getOptionGroups = (product) => {
+  if (Array.isArray(product.option_groups) && product.option_groups.length) {
+    return product.option_groups;
+  }
+
+  return buildFallbackOptionGroups(product);
+};
+
+const getSelectedOptions = (optionGroups) =>
+  optionGroups.reduce((selectedOptions, group) => {
+    const selectedValue =
+      group.values?.find((value) => value.selected) || group.values?.[0];
+    if (!selectedValue?.label) {
+      return selectedOptions;
     }
-  };
 
-  const handleCardClick = () => {
-    if (product.url) {
-      window.open(product.url, "_blank", "noopener,noreferrer");
+    return {
+      ...selectedOptions,
+      [group.name]: selectedValue.label,
+    };
+  }, {});
+
+const colorSwatchStyle = (value) => ({
+  ...(value.swatch || value.color
+    ? { background: value.swatch || value.color }
+    : {
+        background: "#e5e7eb",
+        color: "#374151",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 9,
+        fontWeight: 700,
+      }),
+  ...(value.image
+    ? {
+        backgroundImage: `url(${value.image})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : {}),
+  cursor: "default",
+});
+
+const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
+  const image =
+    product.image || product.image_url || product.images?.[0] || null;
+  const matchedVariantLabel = product.variant_label || null;
+  const variantSummary = buildVariantSummary(product);
+  const optionGroups = getOptionGroups(product);
+  const selectedOptions = getSelectedOptions(optionGroups);
+  const outOfStock =
+    product.in_stock === false ||
+    product.available === false ||
+    product.inventory_quantity === 0;
+
+  const handleAddToCart = (event) => {
+    event.stopPropagation();
+    if (!onAddToCart || outOfStock) {
+      return;
     }
+
+    onAddToCart({ product, selectedOptions });
   };
 
   const formatPrice = () => {
@@ -69,16 +175,9 @@ const ProductCard = ({ product, isSingle = false }) => {
   };
 
   return (
-    <div
-      className={`product-card ${isSingle ? "product-card-single" : ""}`}
-      onClick={handleCardClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && handleCardClick()}
-      style={{ cursor: product.url ? "pointer" : "default" }}
-    >
+    <div className={`product-card ${isSingle ? "product-card-single" : ""}`}>
       <div className="product-image-container">
-        {product.in_stock === false && (
+        {outOfStock && (
           <div className="product-badge">
             <svg
               className="badge-icon"
@@ -94,17 +193,6 @@ const ProductCard = ({ product, isSingle = false }) => {
           </div>
         )}
 
-        {product.url && (
-          <button
-            className="product-link-btn"
-            onClick={handleLinkClick}
-            aria-label="View product"
-            title="View on store"
-          >
-            <IoLinkOutline size={18} color="#ffffff" />
-          </button>
-        )}
-
         {formatPrice() && <div className="product-price">{formatPrice()}</div>}
 
         {image ? (
@@ -118,6 +206,102 @@ const ProductCard = ({ product, isSingle = false }) => {
 
       <div className="product-details">
         <h3 className="product-name">{product.title}</h3>
+        {matchedVariantLabel ? (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#7E3FF2",
+              lineHeight: 1.4,
+            }}
+          >
+            Best match: {matchedVariantLabel}
+          </div>
+        ) : null}
+        {variantSummary ? (
+          <div
+            style={{
+              marginTop: matchedVariantLabel ? 4 : 6,
+              fontSize: 12,
+              color: "#6b7280",
+              lineHeight: 1.4,
+            }}
+          >
+            {variantSummary}
+          </div>
+        ) : null}
+        {optionGroups.length > 0 ? (
+          <div className="product-options">
+            {optionGroups.slice(0, 2).map((group) => {
+              const isColorGroup = group.axis === "color";
+              const visibleValues =
+                group.values?.slice(0, isColorGroup ? 5 : 4) || [];
+              const remainingCount =
+                (group.values?.length || 0) - visibleValues.length;
+
+              return (
+                <div
+                  className="option-group"
+                  key={`${product.id}-${group.name}`}
+                >
+                  <span className="option-label">{group.name}</span>
+                  <div
+                    className={isColorGroup ? "color-swatches" : "size-pills"}
+                  >
+                    {visibleValues.map((value) =>
+                      isColorGroup ? (
+                        <span
+                          key={`${group.name}-${value.label}`}
+                          className={`color-swatch${value.selected ? " selected" : ""}${value.available === false ? " unavailable" : ""}`}
+                          title={value.label}
+                          style={colorSwatchStyle(value)}
+                        >
+                          {!value.swatch && !value.color && !value.image
+                            ? value.label.slice(0, 1).toUpperCase()
+                            : null}
+                        </span>
+                      ) : (
+                        <span
+                          key={`${group.name}-${value.label}`}
+                          className={`size-pill${value.selected ? " selected" : ""}${value.available === false ? " unavailable" : ""}`}
+                          style={{ cursor: "default" }}
+                        >
+                          {value.label}
+                        </span>
+                      ),
+                    )}
+                    {remainingCount > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#9ca3af",
+                          alignSelf: "center",
+                        }}
+                      >
+                        +{remainingCount}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {onAddToCart ? (
+          <div className="product-footer">
+            <button
+              type="button"
+              className="cart-btn"
+              onClick={handleAddToCart}
+              disabled={outOfStock}
+              aria-label={outOfStock ? "Out of stock" : "Add to cart"}
+              title={outOfStock ? "Out of stock" : "Add to cart"}
+            >
+              <IoCartOutline className="cart-icon" size={18} />
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

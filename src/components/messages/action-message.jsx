@@ -16,9 +16,10 @@
  *   social    - Opens social profile
  *   link      - Opens any URL in new tab
  *
- * Legacy action types (still supported for backward compat):
- *   add-to-cart, add_to_cart, view-product, book-appointment, contact-us,
- *   browse-category, visit-link, calendly, lead_form, contact, phone
+ * Legacy action types (still supported):
+ *   add-to-cart, add_to_cart, book-appointment, calendly,
+ *   contact, contact-us, visit-link, view-product,
+ *   browse-category, lead_form, phone
  *
  * @param {{ msg, onSendMessage, onShowToast }} props
  * @module components/messages/action-message
@@ -42,12 +43,36 @@ import LeadForm from "./lead-form";
 const ICON_SIZE = 14;
 const ICON_STYLE = { marginRight: "6px" };
 
+function normalizeExternalUrl(url) {
+  const value = url?.trim();
+  if (!value) return null;
+  if (/^(https?:|mailto:|tel:|sms:|whatsapp:)/i.test(value)) return value;
+  if (value.startsWith("//")) return `https:${value}`;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/|$)/i.test(value)) return `https://${value}`;
+  return value;
+}
+
+function openExternalUrl(url) {
+  const normalized = normalizeExternalUrl(url);
+  if (!normalized) return false;
+  const opened = window.open(normalized, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    window.location.assign(normalized);
+  }
+  return true;
+}
+
 function OpenButton({ url, label, icon, onSendMessage }) {
+  /**
+   * Generic button that opens a URL or falls back to sending label as message.
+   */
   if (url) {
     return (
       <button
         className="action-button"
-        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+        onClick={() => {
+          if (!openExternalUrl(url)) onSendMessage(label);
+        }}
       >
         {icon}
         {label}
@@ -62,6 +87,9 @@ function OpenButton({ url, label, icon, onSendMessage }) {
 }
 
 function LinkButton({ url, label, icon, onSendMessage }) {
+  /**
+   * Anchor-based button for tel: and mailto: schemes.
+   */
   if (url) {
     return (
       <a className="action-button action-button--link" href={url}>
@@ -104,13 +132,13 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
             const cartUrl = variantId
               ? `${url}${separator}add-to-cart=${variantId}`
               : url;
-            window.open(cartUrl, "_blank", "noopener,noreferrer");
+            openExternalUrl(cartUrl);
           } else {
             onSendMessage(label);
           }
         }}
       >
-        <IoCart size={14} style={{ marginRight: "6px" }} />
+        <IoCart size={ICON_SIZE} style={ICON_STYLE} />
         {label}
       </button>
     );
@@ -164,20 +192,7 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
     );
   }
 
-  if (action_type === "form" || action_type === "lead_form") {
-    if (action_type === "lead_form" || (!url && action_type === "form")) {
-      return (
-        <LeadForm
-          label={label}
-          metadata={metadata}
-          onSubmit={(data) => {
-            onSendMessage(
-              `Quote request submitted: ${data.name} <${data.email}>${data.message ? " - " + data.message : ""}`,
-            );
-          }}
-        />
-      );
-    }
+  if (action_type === "form") {
     return (
       <OpenButton
         url={url}
@@ -257,7 +272,7 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
       <OpenButton
         url={url}
         label={label}
-        icon={<IoMailOutline size={ICON_SIZE} style={ICON_STYLE} />}
+        icon={<IoOpenOutline size={ICON_SIZE} style={ICON_STYLE} />}
         onSendMessage={onSendMessage}
       />
     );
@@ -279,17 +294,26 @@ export default function ActionMessage({ msg, onSendMessage, onShowToast }) {
     );
   }
 
-  // Fallback
+  if (action_type === "lead_form") {
+    return (
+      <LeadForm
+        label={label}
+        metadata={metadata}
+        onSubmit={(data) => {
+          onSendMessage(
+            `Quote request submitted: ${data.name} <${data.email}>${data.message ? " - " + data.message : ""}`,
+          );
+        }}
+      />
+    );
+  }
+
   return (
-    <button
-      className="action-button"
-      onClick={() =>
-        url
-          ? window.open(url, "_blank", "noopener,noreferrer")
-          : onSendMessage(label)
-      }
-    >
-      {label}
-    </button>
+    <OpenButton
+      url={url}
+      label={label}
+      icon={null}
+      onSendMessage={onSendMessage}
+    />
   );
 }

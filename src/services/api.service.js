@@ -39,10 +39,33 @@ export function createApiClient(baseURL) {
 /**
  * @param {import("axios").AxiosInstance} client
  * @param {{ storeId: string, visitorId: string }} params
+ * @param {import("axios").AxiosRequestConfig} [requestConfig]
  * @returns {Promise<import("axios").AxiosResponse>}
  */
-export function getConversations(client, { storeId, visitorId }) {
+export function getConversations(
+  client,
+  { storeId, visitorId },
+  requestConfig = {},
+) {
   return client.get("/stores/widget/conversations", {
+    ...requestConfig,
     params: { storeId, visitorId },
+  });
+}
+
+/**
+ * @param {import("axios").AxiosInstance} client
+ * @param {{ conversationId: string, page?: number, limit?: number, order?: "asc"|"desc" }} params
+ * @param {import("axios").AxiosRequestConfig} [requestConfig]
+ * @returns {Promise<import("axios").AxiosResponse>}
+ */
+export function getConversationMessages(
+  client,
+  { conversationId, page = 1, limit = 50, order = "asc" },
+  requestConfig = {},
+) {
+  return client.get(`/stores/widget/conversations/${conversationId}/messages`, {
+    ...requestConfig,
+    params: { page, limit, order },
   });
 }

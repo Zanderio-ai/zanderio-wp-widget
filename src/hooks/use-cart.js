@@ -1,12 +1,11 @@
 /**
  * Zanderio Widget — useCart Hook
  *
- * Manages the widget’s local cart state and transient toast notifications.
+ * Manages real storefront cart adds and transient toast notifications.
  *
- * `addToCart(item)` adds a product to the `cartItems` array.  If the same
- * product with identical `selectedOptions` already exists the quantity is
- * incremented instead of inserting a duplicate.  Option equality is
- * checked key-by-key across the union of both option sets.
+ * `addToCart(item)` performs a real cart mutation for Shopify and
+ * WooCommerce storefronts, then mirrors the result into local cart state
+ * so the widget can show lightweight success feedback.
  *
  * `showToast(message)` displays a brief confirmation message that
  * auto-dismisses after 3 seconds.
@@ -18,7 +17,196 @@
 
 import { useState, useCallback } from "react";
 
-export function useCart() {
+function normalizeId(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const id = String(value).trim();
+  return id || null;
+}
+
+function getSelectedOptionMap(item) {
+  return item?.selectedOptions || item?.product?.selectedOptions || {};
+}
+
+function buildWooAttributeName(name) {
+  const normalized = String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.startsWith("attribute_")
+    ? normalized
+    : `attribute_${normalized}`;
+}
+
+function detectStorefront(settings, remoteConfig) {
+  const explicitSource = [
+    remoteConfig?.platform,
+    remoteConfig?.source,
+    remoteConfig?.storefront,
+    settings?.platform,
+    settings?.source,
+    settings?.storefront,
+    settings?.integration,
+  ].find((value) => typeof value === "string" && value.trim());
+
+  if (explicitSource) {
+    if (/shopify/i.test(explicitSource)) {
+      return "shopify";
+    }
+    if (/woo|wordpress/i.test(explicitSource)) {
+      return "woocommerce";
+    }
+  }
+
+  if (window.Shopify?.routes?.root) {
+    return "shopify";
+  }
+
+  if (
+    window.wc_add_to_cart_params ||
+    window.wc_cart_fragments_params ||
+    document.body?.classList.contains("woocommerce") ||
+    document.body?.classList.contains("woocommerce-js") ||
+    document.body?.classList.contains("woocommerce-page")
+  ) {
+    return "woocommerce";
+  }
+
+  return "unknown";
+}
+
+async function addShopifyItem(item, quantity) {
+  const variantId = normalizeId(
+    item?.product?.matched_variant_id ||
+      item?.product?.matchedVariantId ||
+      item?.product?.variant_id ||
+      item?.product?.variantId,
+  );
+
+  if (!window.Shopify?.routes?.root || !variantId) {
+    throw new Error("missing_shopify_variant");
+  }
+
+  const response = await fetch(`${window.Shopify.routes.root}cart/add.js`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({ id: variantId, quantity }),
+  });
+
+  if (!response.ok) {
+    throw new Error("shopify_cart_failed");
+  }
+
+  return response.json().catch(() => null);
+}
+
+function getWooAjaxUrl() {
+  const ajaxUrl =
+    window.wc_add_to_cart_params?.wc_ajax_url ||
+    window.wc_cart_fragments_params?.wc_ajax_url;
+
+  if (ajaxUrl) {
+    return ajaxUrl.replace("%%endpoint%%", "add_to_cart");
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("wc-ajax", "add_to_cart");
+  return url.toString();
+}
+
+function triggerWooCartRefresh(payload) {
+  const body = document.body;
+  if (!body) {
+    return;
+  }
+
+  if (window.jQuery && typeof window.jQuery(body).trigger === "function") {
+    window
+      .jQuery(body)
+      .trigger("added_to_cart", [
+        payload?.fragments || {},
+        payload?.cart_hash || null,
+        null,
+      ]);
+    window.jQuery(body).trigger("wc_fragment_refresh");
+  }
+
+  body.dispatchEvent(
+    new CustomEvent("zanderio:cart:added", { detail: payload || {} }),
+  );
+}
+
+async function addWooCommerceItem(item, quantity) {
+  const productId = normalizeId(
+    item?.product?.parent_id || item?.product?.product_id || item?.product?.id,
+  );
+  const variationId = normalizeId(
+    item?.product?.matched_variant_id ||
+      item?.product?.matchedVariantId ||
+      item?.product?.variation_id ||
+      item?.product?.variationId,
+  );
+
+  if (!productId) {
+    throw new Error("missing_woocommerce_product");
+  }
+
+  const body = new URLSearchParams();
+  body.set("product_id", productId);
+  body.set("quantity", String(quantity));
+
+  if (variationId) {
+    body.set("variation_id", variationId);
+  }
+
+  Object.entries(getSelectedOptionMap(item)).forEach(([name, value]) => {
+    const attributeName = buildWooAttributeName(name);
+    if (attributeName && value != null && value !== "") {
+      body.set(attributeName, String(value));
+    }
+  });
+
+  const response = await fetch(getWooAjaxUrl(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      Accept: "application/json, text/javascript, */*; q=0.01",
+    },
+    credentials: "same-origin",
+    body: body.toString(),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.error) {
+    throw new Error("woocommerce_cart_failed");
+  }
+
+  triggerWooCartRefresh(payload);
+  return payload;
+}
+
+function areSameCartLine(a, b) {
+  if (a.product.id !== b.product.id) return false;
+  const left = getSelectedOptionMap(a);
+  const right = getSelectedOptionMap(b);
+  const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])];
+  return keys.every((key) => left[key] === right[key]);
+}
+
+export function useCart(settings = {}, remoteConfig = null) {
   const [cartItems, setCartItems] = useState([]);
   const [toast, setToast] = useState({ show: false, message: "" });
 
@@ -28,30 +216,48 @@ export function useCart() {
   }, []);
 
   const addToCart = useCallback(
-    (item) => {
-      const existingIndex = cartItems.findIndex((ci) => {
-        if (ci.product.id !== item.product.id) return false;
-        const a = ci.selectedOptions || {};
-        const b = item.selectedOptions || {};
-        const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
-        return keys.every((k) => a[k] === b[k]);
-      });
+    async (item) => {
+      const quantity = item?.quantity || 1;
+      const storefront = detectStorefront(settings, remoteConfig);
 
-      if (existingIndex !== -1) {
-        setCartItems((prev) =>
-          prev.map((ci, i) =>
-            i === existingIndex
-              ? { ...ci, quantity: (ci.quantity || 1) + 1 }
-              : ci,
-          ),
-        );
-      } else {
-        setCartItems((prev) => [...prev, { ...item, quantity: 1 }]);
+      try {
+        if (storefront === "shopify") {
+          await addShopifyItem(item, quantity);
+        } else if (storefront === "woocommerce") {
+          await addWooCommerceItem(item, quantity);
+        } else {
+          throw new Error("unsupported_storefront");
+        }
+
+        setCartItems((prev) => {
+          const existingIndex = prev.findIndex((cartItem) =>
+            areSameCartLine(cartItem, item),
+          );
+
+          if (existingIndex !== -1) {
+            return prev.map((cartItem, index) =>
+              index === existingIndex
+                ? { ...cartItem, quantity: (cartItem.quantity || 1) + quantity }
+                : cartItem,
+            );
+          }
+
+          return [...prev, { ...item, quantity }];
+        });
+
+        showToast(`${item.product.title} added to cart.`);
+      } catch (error) {
+        if (error?.message === "unsupported_storefront") {
+          showToast(
+            "Cart actions are only available on Shopify and WooCommerce storefronts.",
+          );
+          return;
+        }
+
+        showToast("Could not add that item to the cart. Please try again.");
       }
-
-      showToast(`${item.product.title} added to cart!`);
     },
-    [cartItems, showToast],
+    [remoteConfig, settings, showToast],
   );
 
   return { cartItems, addToCart, toast, showToast };

@@ -45,46 +45,42 @@ export default function InputBar({ onSend, disabled, color }) {
 
   return (
     <form onSubmit={handleSubmit} className="chat-input-area">
-      <textarea
-        ref={textareaRef}
-        rows="1"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Type a message..."
-        disabled={disabled}
-        style={{
-          borderRadius: "8px",
-          padding: "10px",
-          border: "1px solid #e1e3e5",
-          outline: "none",
-          width: "100%",
-          resize: "none",
-          fontSize: "14px",
-          lineHeight: "1.4",
-          maxHeight: "80px",
-          overflowY: "auto",
-          fontFamily: "inherit",
-          boxSizing: "border-box",
-        }}
-      />
-      <button
-        type="submit"
-        className="send-btn"
-        disabled={disabled || !input.trim()}
-        style={{
-          opacity: disabled ? 0.5 : 1,
-          padding: "8px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        <IoSend size={20} color={color} />
-      </button>
+      <div className="chat-input-pill">
+        <textarea
+          ref={textareaRef}
+          rows="1"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message..."
+          disabled={disabled}
+          style={{
+            border: "none",
+            padding: "8px 0",
+            outline: "none",
+            width: "100%",
+            resize: "none",
+            fontSize: "14px",
+            lineHeight: "1.4",
+            maxHeight: "80px",
+            overflowY: "auto",
+            fontFamily: "inherit",
+            boxSizing: "border-box",
+            background: "transparent",
+          }}
+        />
+        <button
+          type="submit"
+          className="send-btn"
+          disabled={disabled || !input.trim()}
+          style={{
+            opacity: disabled || !input.trim() ? 0.4 : 1,
+            background: color || "var(--widget-accent, #7e3ff2)",
+          }}
+        >
+          <IoSend size={14} color="var(--widget-accent-contrast, #fff)" />
+        </button>
+      </div>
     </form>
   );
 }

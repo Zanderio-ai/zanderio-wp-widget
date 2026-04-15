@@ -1,12 +1,14 @@
 /**
- * Zanderio Widget — ThinkingIndicator
+ * Zanderio Widget — ThinkingStatus (collapsible pill)
  *
- * Contextual status message shown while the AI is processing.
- * Displays a human-readable status with animated dots.
+ * Compact pill that shows animated dots. Clicking it toggles the
+ * status label — collapsed by default so it takes minimal space.
  *
  * @param {{ status: string }} props
- * @module components/messages/thinking-indicator
+ * @module components/messages/thinking-status
  */
+
+import { useState } from "react";
 
 const STATUS_LABELS = {
   searching_products: "Searching products",
@@ -18,16 +20,22 @@ const STATUS_LABELS = {
 };
 
 export default function ThinkingStatus({ status }) {
+  const [expanded, setExpanded] = useState(false);
   const label = STATUS_LABELS[status] || "Thinking";
 
   return (
-    <div className="thinking-indicator">
-      <span>{label}</span>
-      <span className="thinking-dots">
+    <button
+      type="button"
+      className={`thinking-pill${expanded ? " thinking-pill--expanded" : ""}`}
+      onClick={() => setExpanded((v) => !v)}
+      aria-label={label}
+    >
+      <span className="thinking-pill__icon">
         <span />
         <span />
         <span />
       </span>
-    </div>
+      <span className="thinking-pill__label">{label}</span>
+    </button>
   );
 }
