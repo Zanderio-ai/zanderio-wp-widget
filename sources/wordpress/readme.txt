@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,18 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.2.1 =
+* Refreshed the chat widget design with improved spacing, contrast-aware accent colors, a pill-style composer, and smoother message-area behavior.
+* Improved the in-chat product experience with richer product cards, better variant summaries, swatches, pricing display, and stock-state feedback.
+* Added storefront cart actions for Shopify and WooCommerce with lightweight success and failure toast feedback.
+* Improved message rendering with better action button handling, safer external link normalization, and a compact expandable thinking-status pill.
+* Added storeId-aware widget bootstrap support in the WordPress plugin.
+* Persist the remote store identity from install, reconnect, and authenticated health-check responses.
+* Connected stores now self-heal a missing local storeId from the settings page before rendering widget config.
+* Inject `storeId` into `window.ZanderioWidgetConfig` when known so the widget can bootstrap against the correct store.
+* Clean up the persisted remote store identity on uninstall to avoid stale local metadata.
+* Prepared the plugin for exact-origin widget hardening rollout while keeping the current compatibility path in place.
 
 = 1.2.0 =
 * Full AI streaming support — real-time SSE responses via fetch + ReadableStream.

@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.2.0
+ * Version:      1.2.1
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.1.0' );
+define( 'ZANDERIO_VERSION',      '1.2.1' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -48,11 +48,69 @@ define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
  * ⚠️  IMPORTANT: Update this to your actual Zanderio backend URL.
  *
  * Local dev:   http://localhost:3000
- * Staging:     https://api-staging.zanderio.com
+ * Staging:     https://stage-api.zanderio.com
  * Production:  https://api.zanderio.com
  */
 if ( ! defined( 'ZANDERIO_API_URL' ) ) {
     define( 'ZANDERIO_API_URL', 'https://api.zanderio.ai' );
+}
+
+function zanderio_store_remote_identity( $body, $clear_missing = false ) {
+    $store_id = '';
+
+    if ( ! empty( $body['data']['store_id'] ) ) {
+        $store_id = sanitize_text_field( $body['data']['store_id'] );
+    } elseif ( ! empty( $body['data']['storeId'] ) ) {
+        $store_id = sanitize_text_field( $body['data']['storeId'] );
+    }
+
+    if ( $store_id ) {
+        update_option( 'zanderio_store_id', $store_id );
+        return $store_id;
+    }
+
+    if ( $clear_missing ) {
+        delete_option( 'zanderio_store_id' );
+    }
+
+    return '';
+}
+
+function zanderio_sync_store_identity() {
+    $secret = get_option( 'zanderio_plugin_secret', '' );
+    if ( ! $secret ) {
+        return '';
+    }
+
+    $response = wp_remote_post(
+        ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+        array(
+            'body'    => wp_json_encode( array(
+                'event'                => 'plugin.health',
+                'site_url'             => site_url(),
+                'wp_version'           => get_bloginfo( 'version' ),
+                'woocommerce_version'  => zanderio_get_woo_version(),
+                'plugin_version'       => ZANDERIO_VERSION,
+            ) ),
+            'headers' => array(
+                'Content-Type'      => 'application/json',
+                'X-Zanderio-Secret' => $secret,
+            ),
+            'timeout'   => 15,
+            'sslverify' => true,
+        )
+    );
+
+    if ( is_wp_error( $response ) ) {
+        return '';
+    }
+
+    if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+        return '';
+    }
+
+    $body = json_decode( wp_remote_retrieve_body( $response ), true );
+    return zanderio_store_remote_identity( $body );
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -106,6 +164,7 @@ function zanderio_activate() {
     /* Store secret for lifecycle hooks */
     update_option( 'zanderio_plugin_secret', $body['data']['plugin_secret'] );
     update_option( 'zanderio_domain',        $body['data']['domain'] );
+    zanderio_store_remote_identity( $body, true );
 
     /* Store authorize URL for redirect */
     set_transient( 'zanderio_authorize_url', $body['data']['authorize_url'], 600 );
@@ -191,6 +250,10 @@ function zanderio_render_settings_page() {
     $secret = get_option( 'zanderio_plugin_secret', '' );
     $domain = get_option( 'zanderio_domain', '' );
     $connected = ! empty( $secret );
+
+    if ( $connected && ! get_option( 'zanderio_store_id', '' ) ) {
+        zanderio_sync_store_identity();
+    }
 
     echo '<div class="wrap">';
     echo '<h1>Zanderio AI Agent</h1>';
@@ -299,6 +362,7 @@ function zanderio_do_handshake_and_redirect() {
 
     update_option( 'zanderio_plugin_secret', $body['data']['plugin_secret'] );
     update_option( 'zanderio_domain',        $body['data']['domain'] );
+    zanderio_store_remote_identity( $body, true );
 
     add_filter( 'allowed_redirect_hosts', 'zanderio_allowed_redirect_hosts' );
     wp_safe_redirect( $body['data']['authorize_url'] );
@@ -356,6 +420,10 @@ function zanderio_do_health_check() {
 
     $code = wp_remote_retrieve_response_code( $response );
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+    if ( 200 === $code ) {
+        zanderio_store_remote_identity( $body );
+    }
 
     if ( $code === 200 && ! empty( $body['data']['connected'] ) ) {
         echo '<div class="notice notice-success"><p>✅ Connection healthy.</p></div>';
@@ -436,6 +504,7 @@ function zanderio_uninstall() {
     /* Clean up ALL plugin options */
     delete_option( 'zanderio_plugin_secret' );
     delete_option( 'zanderio_domain' );
+    delete_option( 'zanderio_store_id' );
     delete_option( 'zanderio_widget_color' );
     delete_option( 'zanderio_activation_error' );
     delete_transient( 'zanderio_authorize_url' );
@@ -537,6 +606,7 @@ function zanderio_enqueue_widget() {
     }
 
     $domain        = get_option( 'zanderio_domain', '' );
+    $store_id      = get_option( 'zanderio_store_id', '' );
     $primary_color = get_option( 'zanderio_widget_color', '#7E3FF2' );
 
     wp_register_script(
@@ -552,10 +622,16 @@ function zanderio_enqueue_widget() {
 
     wp_enqueue_script( 'zanderio-widget' );
 
-    $config = wp_json_encode( array(
+    $config = array(
         'shopDomain'   => $domain ?: '',
         'primaryColor' => $primary_color,
-    ) );
+    );
+
+    if ( $store_id ) {
+        $config['storeId'] = $store_id;
+    }
+
+    $config = wp_json_encode( $config );
 
     /*
      * ZanderioWidgetLoaded guard prevents double-initialisation if a caching
