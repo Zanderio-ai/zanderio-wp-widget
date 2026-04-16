@@ -19,7 +19,7 @@ import {
 
 export function useSocket(settings) {
   const socketRef = useRef(null);
-  const [storeId, setStoreId] = useState(null);
+  const [storeId, setStoreId] = useState(settings.storeId || null);
   const [visitorId, setVisitorId] = useState(getVisitorId());
   const [sessionId, setSessionId] = useState(null);
   const [remoteConfig, setRemoteConfig] = useState(null);
@@ -27,8 +27,10 @@ export function useSocket(settings) {
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_SOCKET_URL || settings.socketUrl;
-    const socket = createSocket(socketUrl);
+    const socket = createSocket(socketUrl, { storeId: settings.storeId });
     socketRef.current = socket;
+
+    setStoreId(settings.storeId || null);
 
     socket.on("connect", () => {
       console.log("Zanderio Widget: Socket connected, id:", socket.id);
@@ -36,6 +38,7 @@ export function useSocket(settings) {
       socket.emit("widget:config:request", { socketId: socket.id });
 
       socket.emit("identify", {
+        storeId: settings.storeId || null,
         shop: settings.shopUrl || settings.shopDomain || settings.shopId,
         customerId: settings.customerId,
       });

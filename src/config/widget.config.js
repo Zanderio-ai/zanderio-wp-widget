@@ -29,6 +29,21 @@ const DEFAULTS = {
   aiUrl: import.meta.env.VITE_AI_URL || "https://dev-agent.zanderio.ai",
 };
 
+function resolveStoreId(userConfig) {
+  if (typeof userConfig.storeId === "string" && userConfig.storeId.trim()) {
+    return userConfig.storeId.trim();
+  }
+
+  if (
+    typeof userConfig.shopId === "string" &&
+    userConfig.shopId.trim().startsWith("str_")
+  ) {
+    return userConfig.shopId.trim();
+  }
+
+  return null;
+}
+
 /**
  * Reads the host page's global config object, falls back through legacy names,
  * and merges the result with DEFAULTS.
@@ -37,8 +52,9 @@ const DEFAULTS = {
  * `window.location.hostname` so Shopify and standalone installs work
  * without any extra setup.
  *
- * @returns {{ primaryColor: string, shopId: string, apiRoot: string,
- *             socketUrl: string, shopDomain: string, [key: string]: any }}
+ * @returns {{ primaryColor: string, shopId: string, storeId: string|null,
+ *             apiRoot: string, socketUrl: string, shopDomain: string,
+ *             [key: string]: any }}
  */
 export function resolveConfig() {
   const userConfig =
@@ -51,6 +67,7 @@ export function resolveConfig() {
   return {
     ...DEFAULTS,
     ...userConfig,
+    storeId: resolveStoreId(userConfig),
     shopDomain:
       userConfig.shopDomain || userConfig.shopUrl || window.location.hostname,
   };

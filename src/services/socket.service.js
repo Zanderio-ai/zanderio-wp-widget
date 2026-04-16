@@ -18,11 +18,14 @@ export function persistVisitorId(id) {
   if (id) localStorage.setItem(VISITOR_ID_KEY, id);
 }
 
-export function createSocket(url) {
+export function createSocket(url, options = {}) {
+  const { storeId } = options;
+
   return io(url, {
     query: {
       visitorId: getVisitorId(),
       language: navigator.language || "",
+      ...(storeId ? { storeId } : {}),
     },
     auth: { token: null },
     transports: ["websocket", "polling"],
