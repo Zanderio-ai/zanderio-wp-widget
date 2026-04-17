@@ -1,16 +1,20 @@
 /**
  * Zanderio Widget — useCart Hook
  *
- * Manages real storefront cart adds and transient toast notifications.
+ * Manages cart preview state, real storefront cart adds, and transient
+ * toast notifications.
  *
- * `addToCart(item)` performs a real cart mutation for Shopify and
- * WooCommerce storefronts, then mirrors the result into local cart state
- * so the widget can show lightweight success feedback.
+ * `requestAddToCart(item)` opens the widget's confirmation sheet for a
+ * WooCommerce storefront item. `confirmCartPreview()` performs the real
+ * cart mutation only after the shopper confirms.
  *
  * `showToast(message)` displays a brief confirmation message that
  * auto-dismisses after 3 seconds.
  *
- * @returns {{ cartItems, addToCart, toast, showToast }}
+ * @returns {{ cartItems, requestAddToCart, cartPreview,
+ *             updateCartPreviewQuantity, closeCartPreview,
+ *             confirmCartPreview, isCartPreviewSubmitting,
+ *             toast, showToast }}
  *
  * @module hooks/use-cart
  */
@@ -81,35 +85,6 @@ function detectStorefront(settings, remoteConfig) {
   }
 
   return "unknown";
-}
-
-async function addShopifyItem(item, quantity) {
-  const variantId = normalizeId(
-    item?.product?.matched_variant_id ||
-      item?.product?.matchedVariantId ||
-      item?.product?.variant_id ||
-      item?.product?.variantId,
-  );
-
-  if (!window.Shopify?.routes?.root || !variantId) {
-    throw new Error("missing_shopify_variant");
-  }
-
-  const response = await fetch(`${window.Shopify.routes.root}cart/add.js`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    credentials: "same-origin",
-    body: JSON.stringify({ id: variantId, quantity }),
-  });
-
-  if (!response.ok) {
-    throw new Error("shopify_cart_failed");
-  }
-
-  return response.json().catch(() => null);
 }
 
 function getWooAjaxUrl() {
@@ -206,24 +181,76 @@ function areSameCartLine(a, b) {
   return keys.every((key) => left[key] === right[key]);
 }
 
+function clampQuantity(value) {
+  const normalized = Number.parseInt(value, 10);
+  if (!Number.isFinite(normalized) || normalized < 1) {
+    return 1;
+  }
+
+  return Math.min(normalized, 99);
+}
+
 export function useCart(settings = {}, remoteConfig = null) {
   const [cartItems, setCartItems] = useState([]);
+  const [cartPreview, setCartPreview] = useState(null);
+  const [isCartPreviewSubmitting, setIsCartPreviewSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "" });
+  const storefront = detectStorefront(settings, remoteConfig);
 
   const showToast = useCallback((message) => {
     setToast({ show: true, message });
     setTimeout(() => setToast({ show: false, message: "" }), 3000);
   }, []);
 
+  const closeCartPreview = useCallback(() => {
+    if (isCartPreviewSubmitting) {
+      return;
+    }
+
+    setCartPreview(null);
+  }, [isCartPreviewSubmitting]);
+
+  const updateCartPreviewQuantity = useCallback((nextQuantity) => {
+    setCartPreview((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const resolvedQuantity =
+        typeof nextQuantity === "function"
+          ? nextQuantity(previous.quantity || 1)
+          : nextQuantity;
+
+      return {
+        ...previous,
+        quantity: clampQuantity(resolvedQuantity),
+      };
+    });
+  }, []);
+
+  const requestAddToCart = useCallback(
+    (item) => {
+      if (storefront !== "woocommerce") {
+        showToast(
+          "Cart confirmation is only available on WooCommerce/WordPress storefronts.",
+        );
+        return;
+      }
+
+      setCartPreview({
+        ...item,
+        quantity: clampQuantity(item?.quantity || 1),
+      });
+    },
+    [showToast, storefront],
+  );
+
   const addToCart = useCallback(
     async (item) => {
       const quantity = item?.quantity || 1;
-      const storefront = detectStorefront(settings, remoteConfig);
 
       try {
-        if (storefront === "shopify") {
-          await addShopifyItem(item, quantity);
-        } else if (storefront === "woocommerce") {
+        if (storefront === "woocommerce") {
           await addWooCommerceItem(item, quantity);
         } else {
           throw new Error("unsupported_storefront");
@@ -246,19 +273,48 @@ export function useCart(settings = {}, remoteConfig = null) {
         });
 
         showToast(`${item.product.title} added to cart.`);
+        return true;
       } catch (error) {
         if (error?.message === "unsupported_storefront") {
           showToast(
-            "Cart actions are only available on Shopify and WooCommerce storefronts.",
+            "Cart actions are only available on WooCommerce/WordPress storefronts.",
           );
-          return;
+          return false;
         }
 
         showToast("Could not add that item to the cart. Please try again.");
+        return false;
       }
     },
-    [remoteConfig, settings, showToast],
+    [showToast, storefront],
   );
 
-  return { cartItems, addToCart, toast, showToast };
+  const confirmCartPreview = useCallback(async () => {
+    if (!cartPreview || isCartPreviewSubmitting) {
+      return false;
+    }
+
+    setIsCartPreviewSubmitting(true);
+    try {
+      const didAdd = await addToCart(cartPreview);
+      if (didAdd) {
+        setCartPreview(null);
+      }
+      return didAdd;
+    } finally {
+      setIsCartPreviewSubmitting(false);
+    }
+  }, [addToCart, cartPreview, isCartPreviewSubmitting]);
+
+  return {
+    cartItems,
+    requestAddToCart,
+    cartPreview,
+    updateCartPreviewQuantity,
+    closeCartPreview,
+    confirmCartPreview,
+    isCartPreviewSubmitting,
+    toast,
+    showToast,
+  };
 }

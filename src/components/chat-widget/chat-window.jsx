@@ -20,6 +20,7 @@
 import ChatHeader from "./chat-header";
 import MessageList from "./message-list";
 import InputBar from "./input-bar";
+import CartPreviewSheet from "../cart/cart-preview-sheet";
 import poweredByIcon from "../../assets/powered-by-icon.svg?raw";
 
 function hexToRgb(color) {
@@ -32,9 +33,13 @@ function hexToRgb(color) {
     return null;
   }
 
-  const normalized = value.length === 3
-    ? value.split("").map((char) => `${char}${char}`).join("")
-    : value;
+  const normalized =
+    value.length === 3
+      ? value
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : value;
 
   const int = Number.parseInt(normalized, 16);
   return {
@@ -90,6 +95,11 @@ export default function ChatWindow({
   onSend,
   onClose,
   onAddToCart,
+  cartPreview,
+  onCartPreviewQuantityChange,
+  onCloseCartPreview,
+  onConfirmCartPreview,
+  isCartPreviewSubmitting,
   onShowToast,
   style,
 }) {
@@ -165,6 +175,16 @@ export default function ChatWindow({
           dangerouslySetInnerHTML={{ __html: poweredByIcon }}
         />
       </div>
+
+      {cartPreview ? (
+        <CartPreviewSheet
+          item={cartPreview}
+          onClose={onCloseCartPreview}
+          onConfirm={onConfirmCartPreview}
+          onQuantityChange={onCartPreviewQuantityChange}
+          isSubmitting={isCartPreviewSubmitting}
+        />
+      ) : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@
  *   useSocket       → socket, storeId, visitorId, sessionId, remoteConfig
  *   useWidgetConfig → widgetConfig  (merges local + remote)
  *   useChat         → messages, sendMessage, isLoading, isTyping
- *   useCart         → addToCart, toast, showToast
+ *   useCart         → cart preview state + toast-backed cart mutation
  *
  * The welcome message is synced into the message list via a `useEffect`
  * that fires when `widgetConfig.welcomeMessage` or `remoteConfig` changes.
@@ -48,7 +48,16 @@ export default function App({ settings }) {
     startNewChat,
     updateWelcomeMessage,
   } = useChat(storeId, visitorId, sessionId, settings, { socket, token });
-  const { addToCart, toast, showToast } = useCart(settings, remoteConfig);
+  const {
+    requestAddToCart,
+    cartPreview,
+    updateCartPreviewQuantity,
+    closeCartPreview,
+    confirmCartPreview,
+    isCartPreviewSubmitting,
+    toast,
+    showToast,
+  } = useCart(settings, remoteConfig);
 
   useEffect(() => {
     if (widgetConfig.welcomeMessage) {
@@ -69,7 +78,12 @@ export default function App({ settings }) {
       remainingMessages={remainingMessages}
       startNewChat={startNewChat}
       isMobile={isMobile}
-      onAddToCart={addToCart}
+      onAddToCart={requestAddToCart}
+      cartPreview={cartPreview}
+      onCartPreviewQuantityChange={updateCartPreviewQuantity}
+      onCloseCartPreview={closeCartPreview}
+      onConfirmCartPreview={confirmCartPreview}
+      isCartPreviewSubmitting={isCartPreviewSubmitting}
       toast={toast}
       onShowToast={showToast}
     />
