@@ -18,8 +18,9 @@ export default function SuggestedReplies({ items, onSend }) {
           key={i}
           className="suggestion-chip"
           onClick={() => onSend(text)}
+          title={text}
         >
-          {text}
+          {text.length > 40 ? text.slice(0, 37) + "…" : text}
         </button>
       ))}
     </div>

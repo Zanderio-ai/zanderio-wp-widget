@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -54,7 +54,7 @@ Used server-side by the plugin (PHP) and client-side by the chat widget (JS).
 * **On deactivation / uninstall** — notifies Zanderio to disconnect the store
   and delete associated data.
 
-**Client-side (widget.js):**
+**Client-side (loader.js):**
 
 * **Chat conversations** — visitor messages typed into the chat widget are sent
   over HTTPS to the REST API for AI processing.  No personally identifiable
@@ -74,28 +74,31 @@ REST API above.
 
 == Source Code & Build Tools ==
 
-The file `assets/widget.js` is a minified production build.  The full,
+The file `assets/loader.js` is a minified production build.  The full,
 human-readable source code is available on GitHub:
 
 **Source repository:** [https://github.com/Zanderio-ai/zanderio-wp-widget](https://github.com/Zanderio-ai/zanderio-wp-widget)
 
-To build `widget.js` from source:
+To build `loader.js` from source:
 
 1. Clone the repository: `git clone https://github.com/Zanderio-ai/zanderio-wp-widget.git`
 2. Install dependencies: `npm install`
 3. Build for WordPress: `npm run build:wordpress:prod`
 
-The compiled file is output to `sources/wordpress/assets/widget.js`.
+The compiled file is output to `sources/wordpress/assets/loader.js`.
 
 Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
 
+= 1.2.2 =
+* Fixed a small streaming-cursor rendering issue that could show an empty message bubble before streamed text arrived.
+
 = 1.2.1 =
 * Refreshed the chat widget design with improved spacing, contrast-aware accent colors, a pill-style composer, and smoother message-area behavior.
 * Improved the in-chat product experience with richer product cards, better variant summaries, swatches, pricing display, and stock-state feedback.
-* Added storefront cart actions for Shopify and WooCommerce with lightweight success and failure toast feedback.
+* Added storefront cart actions for WooCommerce with lightweight success and failure toast feedback.
 * Improved message rendering with better action button handling, safer external link normalization, and a compact expandable thinking-status pill.
 * Added storeId-aware widget bootstrap support in the WordPress plugin.
 * Persist the remote store identity from install, reconnect, and authenticated health-check responses.
@@ -118,7 +121,7 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 * Nested config support for updated backend schema.
 
 = 1.1.0 =
-* Widget JS is now bundled inside the plugin zip (assets/widget.js) — no
+* Widget JS is now bundled inside the plugin zip (assets/loader.js) — no
   remote script is fetched or executed at runtime.
 * Script and CSS enqueued via wp_enqueue_script, wp_enqueue_style and
   wp_add_inline_style for full WordPress compatibility.

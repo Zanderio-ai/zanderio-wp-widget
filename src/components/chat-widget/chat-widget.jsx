@@ -36,6 +36,7 @@ export default function ChatWidget({
   isTyping,
   thinkingStatus,
   conversationEnded,
+  remainingMessages,
   startNewChat,
   isMobile,
   onAddToCart,
@@ -66,6 +67,7 @@ export default function ChatWidget({
           isTyping={isTyping}
           thinkingStatus={thinkingStatus}
           conversationEnded={conversationEnded}
+          remainingMessages={remainingMessages}
           startNewChat={startNewChat}
           onSend={sendMessage}
           onClose={() => setIsOpen(false)}

@@ -17,7 +17,14 @@ export default function TypingIndicator() {
         justifyContent: "flex-start",
       }}
     >
-      <div className="message bot">Thinking...</div>
+      <div className="message bot typing-indicator-bubble">
+        <span className="typing-dots">
+          <span />
+          <span />
+          <span />
+        </span>
+        <span className="typing-label">Thinking</span>
+      </div>
     </div>
   );
 }

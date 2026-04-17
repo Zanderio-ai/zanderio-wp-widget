@@ -171,6 +171,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const [isTyping, setIsTyping] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState(null);
   const [conversationEnded, setConversationEnded] = useState(null); // { reason, message }
+  const [remainingMessages, setRemainingMessages] = useState(null);
   const threadIdRef = useRef(null);
   const conversationIdRef = useRef(null);
   const abortRef = useRef(null);
@@ -232,6 +233,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     setIsTyping(false);
     setThinkingStatus(null);
     setConversationEnded(null);
+    setRemainingMessages(null);
   }, [storeId, visitorId, settings.welcomeMessage]);
 
   // ── Restore thread + message history on mount ──
@@ -431,6 +433,12 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
               } else if (evt.event === "thinking") {
                 const status = evt.data?.status;
                 if (status) setThinkingStatus(status);
+              } else if (evt.event === "cards") {
+                if (evt.data?.cards?.length)
+                  accumulatedProducts = evt.data.cards;
+              } else if (evt.event === "suggestions") {
+                if (evt.data?.suggestions?.length)
+                  accumulatedSuggestions = evt.data.suggestions;
               } else if (evt.event === "updates") {
                 if (evt.data && typeof evt.data === "object") {
                   for (const nodeData of Object.values(evt.data)) {
@@ -458,6 +466,9 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
                     visitorId,
                     evt.data.conversation_id,
                   );
+                }
+                if (evt.data?.remaining_messages != null) {
+                  setRemainingMessages(evt.data.remaining_messages);
                 }
 
                 setThinkingStatus(null);
@@ -622,6 +633,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
       },
     ]);
     setConversationEnded(null);
+    setRemainingMessages(null);
   }, [storeId, visitorId, settings.welcomeMessage]);
 
   return {
@@ -631,6 +643,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     isTyping,
     thinkingStatus,
     conversationEnded,
+    remainingMessages,
     startNewChat,
     updateWelcomeMessage,
   };

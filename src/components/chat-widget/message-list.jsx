@@ -59,8 +59,13 @@ export default function MessageList({
       ref={messagesRef}
       onScroll={updateAutoScrollState}
     >
-      {messages.map((msg) => {
+      {messages.map((msg, idx) => {
         if (msg.type === "action") {
+          return null;
+        }
+
+        // Don't render an empty streaming bubble — the thinking indicator handles this
+        if (msg.isStreaming && !msg.text?.length) {
           return null;
         }
 
@@ -79,14 +84,34 @@ export default function MessageList({
               onAddToCart={onAddToCart}
               onSendMessage={onSendMessage}
               onShowToast={onShowToast}
+              onRetry={
+                msg.isError
+                  ? () => {
+                      const lastUserMsg = messages
+                        .slice(0, idx)
+                        .reverse()
+                        .find((m) => m.sender === "user");
+                      if (lastUserMsg) onSendMessage(lastUserMsg.text);
+                    }
+                  : undefined
+              }
             />
           </div>
         );
       })}
       {isLoading &&
-        !messages.some((m) => m.isStreaming) &&
+        !messages.some((m) => m.isStreaming && m.text?.length > 0) &&
         (thinkingStatus ? (
-          <ThinkingStatus status={thinkingStatus} />
+          <>
+            <ThinkingStatus status={thinkingStatus} />
+            {thinkingStatus === "searching_products" && (
+              <div className="product-skeleton-row">
+                <div className="product-card-skeleton" />
+                <div className="product-card-skeleton" />
+                <div className="product-card-skeleton" />
+              </div>
+            )}
+          </>
         ) : (
           <TypingIndicator />
         ))}

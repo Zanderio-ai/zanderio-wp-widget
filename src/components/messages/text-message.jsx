@@ -14,7 +14,7 @@
 
 import { renderMarkdown } from "../../utils/markdown.jsx";
 
-export default function TextMessage({ msg, color }) {
+export default function TextMessage({ msg, color, onRetry }) {
   const classes = [
     "message",
     msg.sender,
@@ -37,6 +37,11 @@ export default function TextMessage({ msg, color }) {
       }
     >
       {renderMarkdown(msg.text, msg.isTyping)}
+      {msg.isError && onRetry && (
+        <button className="retry-btn" onClick={onRetry}>
+          ↻ Try again
+        </button>
+      )}
     </div>
   );
 }

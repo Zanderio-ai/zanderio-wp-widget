@@ -85,6 +85,7 @@ export default function ChatWindow({
   isTyping,
   thinkingStatus,
   conversationEnded,
+  remainingMessages,
   startNewChat,
   onSend,
   onClose,
@@ -139,6 +140,14 @@ export default function ChatWindow({
         disabled={isLoading || isTyping || !!conversationEnded}
         color={widgetConfig.color}
       />
+
+      {remainingMessages != null &&
+        remainingMessages <= 6 &&
+        !conversationEnded && (
+          <div className="remaining-messages-hint">
+            {remainingMessages} messages remaining
+          </div>
+        )}
 
       {conversationEnded && (
         <button

@@ -36,6 +36,7 @@ export default function MessageBubble({
   onAddToCart,
   onSendMessage,
   onShowToast,
+  onRetry,
 }) {
   switch (msg.type) {
     case "product_card":
@@ -74,6 +75,8 @@ export default function MessageBubble({
       );
 
     default:
-      return <TextMessage msg={msg} color={widgetConfig.color} />;
+      return (
+        <TextMessage msg={msg} color={widgetConfig.color} onRetry={onRetry} />
+      );
   }
 }

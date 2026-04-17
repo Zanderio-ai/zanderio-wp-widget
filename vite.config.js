@@ -81,9 +81,9 @@ export default defineConfig({
       output: {
         format: "iife",
         name: "ZanderioWidget",
-        entryFileNames: "widget.js",
+        entryFileNames: "loader.js",
         assetFileNames: (info) =>
-          info.name?.endsWith(".css") ? "widget.css" : "[name][extname]",
+          info.name?.endsWith(".css") ? "loader.css" : "[name][extname]",
       },
     },
 

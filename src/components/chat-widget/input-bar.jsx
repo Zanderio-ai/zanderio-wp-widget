@@ -62,11 +62,12 @@ export default function InputBar({ onSend, disabled, color }) {
             resize: "none",
             fontSize: "14px",
             lineHeight: "1.4",
-            maxHeight: "80px",
+            maxHeight: "96px",
             overflowY: "auto",
             fontFamily: "inherit",
             boxSizing: "border-box",
             background: "transparent",
+            display: "block",
           }}
         />
         <button

@@ -44,6 +44,7 @@ export default function App({ settings }) {
     isTyping,
     thinkingStatus,
     conversationEnded,
+    remainingMessages,
     startNewChat,
     updateWelcomeMessage,
   } = useChat(storeId, visitorId, sessionId, settings, { socket, token });
@@ -65,6 +66,7 @@ export default function App({ settings }) {
       isTyping={isTyping}
       thinkingStatus={thinkingStatus}
       conversationEnded={conversationEnded}
+      remainingMessages={remainingMessages}
       startNewChat={startNewChat}
       isMobile={isMobile}
       onAddToCart={addToCart}
