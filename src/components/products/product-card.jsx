@@ -13,6 +13,42 @@ import { IoCartOutline } from "react-icons/io5";
 
 const pluralize = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
+const normalizeId = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized || null;
+};
+
+const getProductUrl = (product) =>
+  [product?.url, product?.product_url, product?.permalink].find(
+    (value) => typeof value === "string" && value.trim(),
+  ) || null;
+
+const hasResolvedCartVariant = (product) =>
+  Boolean(
+    normalizeId(
+      product?.matched_variant_id ||
+        product?.matchedVariantId ||
+        product?.variation_id ||
+        product?.variationId,
+    ),
+  );
+
+const requiresProductPageSelection = (product) => {
+  if (!product) {
+    return false;
+  }
+
+  const variantCount = Number(product.variant_count || 0);
+  const hasOptionGroups =
+    Array.isArray(product.option_groups) && product.option_groups.length > 0;
+
+  return !hasResolvedCartVariant(product) && (variantCount > 1 || hasOptionGroups);
+};
+
 const buildVariantSummary = (product) => {
   if (product.variant_summary) {
     return product.variant_summary;
@@ -134,14 +170,44 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
     product.in_stock === false ||
     product.available === false ||
     product.inventory_quantity === 0;
+  const productUrl = getProductUrl(product);
+  const requiresProductPage = requiresProductPageSelection(product);
+  const showSecondaryAction = Boolean(productUrl) && !requiresProductPage;
 
-  const handleAddToCart = (event) => {
+  const openProductPage = () => {
+    if (
+      !productUrl ||
+      typeof window === "undefined" ||
+      typeof window.location?.assign !== "function"
+    ) {
+      return;
+    }
+
+    window.location.assign(productUrl);
+  };
+
+  const handlePrimaryAction = (event) => {
     event.stopPropagation();
-    if (!onAddToCart || outOfStock) {
+
+    if (outOfStock) {
+      return;
+    }
+
+    if (requiresProductPage) {
+      openProductPage();
+      return;
+    }
+
+    if (!onAddToCart) {
       return;
     }
 
     onAddToCart({ product, selectedOptions });
+  };
+
+  const handleViewDetails = (event) => {
+    event.stopPropagation();
+    openProductPage();
   };
 
   const formatPrice = () => {
@@ -290,15 +356,46 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
         ) : null}
         {onAddToCart ? (
           <div className="product-footer">
+            {showSecondaryAction ? (
+              <button
+                type="button"
+                className="product-secondary-btn"
+                onClick={handleViewDetails}
+              >
+                View details
+              </button>
+            ) : null}
+
             <button
               type="button"
-              className="cart-btn"
-              onClick={handleAddToCart}
-              disabled={outOfStock}
-              aria-label={outOfStock ? "Out of stock" : "Add to cart"}
-              title={outOfStock ? "Out of stock" : "Add to cart"}
+              className={`product-primary-btn${showSecondaryAction ? "" : " product-primary-btn--full"}`}
+              onClick={handlePrimaryAction}
+              disabled={outOfStock || (requiresProductPage && !productUrl)}
+              aria-label={
+                outOfStock
+                  ? "Out of stock"
+                  : requiresProductPage
+                    ? "Choose options"
+                    : "Add to cart"
+              }
+              title={
+                outOfStock
+                  ? "Out of stock"
+                  : requiresProductPage
+                    ? "Choose options"
+                    : "Add to cart"
+              }
             >
-              <IoCartOutline className="cart-icon" size={18} />
+              {requiresProductPage ? null : (
+                <IoCartOutline className="cart-icon" size={16} />
+              )}
+              <span>
+                {outOfStock
+                  ? "Out of stock"
+                  : requiresProductPage
+                    ? "Choose options"
+                    : "Add to cart"}
+              </span>
             </button>
           </div>
         ) : null}

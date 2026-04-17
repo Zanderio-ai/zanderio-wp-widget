@@ -105,10 +105,46 @@ export default function MessageList({
           <>
             <ThinkingStatus status={thinkingStatus} />
             {thinkingStatus === "searching_products" && (
-              <div className="product-skeleton-row">
-                <div className="product-card-skeleton" />
-                <div className="product-card-skeleton" />
-                <div className="product-card-skeleton" />
+              <div className="product-skeleton-lane">
+                <div className="product-rail-hint" aria-hidden="true">
+                  Swipe to browse
+                </div>
+                <div className="product-rail-shell">
+                  <div className="product-skeleton-row">
+                    <div className="product-card-skeleton">
+                      <div className="product-card-skeleton__image" />
+                      <div className="product-card-skeleton__content">
+                        <div className="product-card-skeleton__line product-card-skeleton__line--wide" />
+                        <div className="product-card-skeleton__line product-card-skeleton__line--short" />
+                        <div className="product-card-skeleton__chips">
+                          <div className="product-card-skeleton__chip" />
+                          <div className="product-card-skeleton__chip" />
+                        </div>
+                        <div className="product-card-skeleton__button" />
+                      </div>
+                    </div>
+
+                    <div className="product-card-skeleton product-card-skeleton--peek">
+                      <div className="product-card-skeleton__image" />
+                      <div className="product-card-skeleton__content">
+                        <div className="product-card-skeleton__line product-card-skeleton__line--wide" />
+                        <div className="product-card-skeleton__line product-card-skeleton__line--short" />
+                        <div className="product-card-skeleton__chips">
+                          <div className="product-card-skeleton__chip" />
+                        </div>
+                        <div className="product-card-skeleton__button" />
+                      </div>
+                    </div>
+
+                    <div className="product-card-skeleton product-card-skeleton--peek">
+                      <div className="product-card-skeleton__image" />
+                      <div className="product-card-skeleton__content">
+                        <div className="product-card-skeleton__line product-card-skeleton__line--wide" />
+                        <div className="product-card-skeleton__line product-card-skeleton__line--short" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </>

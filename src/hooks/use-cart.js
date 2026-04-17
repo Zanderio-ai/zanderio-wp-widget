@@ -50,6 +50,30 @@ function buildWooAttributeName(name) {
     : `attribute_${normalized}`;
 }
 
+function hasResolvedWooVariation(item) {
+  return Boolean(
+    normalizeId(
+      item?.product?.matched_variant_id ||
+        item?.product?.matchedVariantId ||
+        item?.product?.variation_id ||
+        item?.product?.variationId,
+    ),
+  );
+}
+
+function requiresWooProductPage(item) {
+  const product = item?.product;
+  if (!product) {
+    return false;
+  }
+
+  const variantCount = Number(product.variant_count || 0);
+  const hasOptionGroups =
+    Array.isArray(product.option_groups) && product.option_groups.length > 0;
+
+  return !hasResolvedWooVariation(item) && (variantCount > 1 || hasOptionGroups);
+}
+
 function detectStorefront(settings, remoteConfig) {
   const explicitSource = [
     remoteConfig?.platform,
@@ -136,6 +160,10 @@ async function addWooCommerceItem(item, quantity) {
 
   if (!productId) {
     throw new Error("missing_woocommerce_product");
+  }
+
+  if (requiresWooProductPage(item)) {
+    throw new Error("missing_woocommerce_variation");
   }
 
   const body = new URLSearchParams();
@@ -237,6 +265,13 @@ export function useCart(settings = {}, remoteConfig = null) {
         return;
       }
 
+      if (requiresWooProductPage(item)) {
+        showToast(
+          "This product needs option selection on the product page before it can be added to cart.",
+        );
+        return;
+      }
+
       setCartPreview({
         ...item,
         quantity: clampQuantity(item?.quantity || 1),
@@ -278,6 +313,13 @@ export function useCart(settings = {}, remoteConfig = null) {
         if (error?.message === "unsupported_storefront") {
           showToast(
             "Cart actions are only available on WooCommerce/WordPress storefronts.",
+          );
+          return false;
+        }
+
+        if (error?.message === "missing_woocommerce_variation") {
+          showToast(
+            "This product needs option selection on the product page before it can be added to cart.",
           );
           return false;
         }

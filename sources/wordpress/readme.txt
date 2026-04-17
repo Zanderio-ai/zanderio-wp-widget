@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.2.3
+Stable tag: 1.2.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,12 +91,6 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
-
-= 1.2.3 =
-* Added a product-card cart confirmation flow for WooCommerce storefronts, including an in-widget bottom-sheet preview before the item is added to cart.
-* Added quantity controls and clearer product, variant, and pricing details inside the cart confirmation sheet.
-* Limited the product-card cart flow to WooCommerce and WordPress storefronts instead of attempting unsupported storefront cart mutations.
-* Improved WordPress store relinking so plugin installs can attach cleanly to an already-connected Zanderio store during reconnect and portal-first install flows.
 
 = 1.2.2 =
 * Fixed a small streaming-cursor rendering issue that could show an empty message bubble before streamed text arrived.

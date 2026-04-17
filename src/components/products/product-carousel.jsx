@@ -1,30 +1,27 @@
 /**
  * Zanderio Widget — ProductCarousel
  *
- * Horizontal carousel for displaying multiple product cards side-by-side.
+ * Horizontal swipe rail for displaying product cards side-by-side.
  *
  * Layout rules
  * ------------
- * • ≤ 2 products → simple flex row, no navigation controls.
- * • > 2 products → sliding track with prev/next arrow buttons and a
- *   page indicator (e.g. “1 - 2 of 5”).  Each click shifts by one card
- *   width (260 px + 16 px gap).
+ * • 1 product  → simple single-card layout.
+ * • > 1 product → native horizontal scrolling with scroll snapping and a
+ *   gesture hint instead of explicit arrow controls.
  *
  * @param {{ products: object[], onAddToCart: Function }} props
  *
  * @module components/products/product-carousel
  */
 
-import { useState } from "react";
-import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import ProductCard from "./product-card";
 
 const ProductCarousel = ({ products, onAddToCart }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const cardsPerPage = 2;
-  const maxIndex = products.length - 1;
+  if (!products?.length) {
+    return null;
+  }
 
-  if (products.length <= cardsPerPage) {
+  if (products.length === 1) {
     return (
       <div className="products-wrapper-simple">
         {products.map((product) => (
@@ -39,26 +36,17 @@ const ProductCarousel = ({ products, onAddToCart }) => {
     );
   }
 
-  const isAtStart = currentIndex === 0;
-  const isAtEnd = currentIndex >= maxIndex;
-
   return (
     <div className="product-carousel-container">
-      <button
-        className="carousel-nav-btn carousel-nav-prev"
-        onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-        disabled={isAtStart}
-        style={{ opacity: isAtStart ? 0.3 : 1 }}
-      >
-        <IoChevronBack size={24} color="#7b4dff" />
-      </button>
+      <div className="product-rail-hint" aria-hidden="true">
+        Swipe to browse
+      </div>
 
-      <div className="carousel-viewport">
+      <div className="product-rail-shell">
         <div
-          className="carousel-track"
-          style={{
-            transform: `translateX(-${currentIndex * (260 + 16)}px)`,
-          }}
+          className="products-rail"
+          role="region"
+          aria-label={`Product results (${products.length} items)`}
         >
           {products.map((product) => (
             <ProductCard
@@ -69,23 +57,6 @@ const ProductCarousel = ({ products, onAddToCart }) => {
             />
           ))}
         </div>
-      </div>
-
-      <button
-        className="carousel-nav-btn carousel-nav-next"
-        onClick={() => setCurrentIndex((prev) => Math.min(maxIndex, prev + 1))}
-        disabled={isAtEnd}
-        style={{ opacity: isAtEnd ? 0.3 : 1 }}
-      >
-        <IoChevronForward size={24} color="#7b4dff" />
-      </button>
-
-      <div className="carousel-dots">
-        <span className="carousel-page-indicator">
-          {currentIndex + 1} -{" "}
-          {Math.min(currentIndex + cardsPerPage, products.length)} of{" "}
-          {products.length}
-        </span>
       </div>
     </div>
   );
