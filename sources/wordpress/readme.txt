@@ -92,6 +92,18 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 
 == Changelog ==
 
+= 1.2.4 =
+* Replaced the arrow-based product carousel with a gesture-first horizontal swipe rail for browsing product results inside the chat widget.
+* Reworked the loading state into full-card skeleton placeholders that match the live product rail layout.
+* Reduced the product-card footprint and improved CTA visibility so key actions stay visible inside the widget viewport.
+* Prevented unresolved multi-variant WooCommerce products from attempting broken AJAX cart adds by routing shoppers to the product page to choose options first.
+
+= 1.2.3 =
+* Added a product-card cart confirmation flow for WooCommerce storefronts, including an in-widget bottom-sheet preview before the item is added to cart.
+* Added quantity controls and clearer product, variant, and pricing details inside the cart confirmation sheet.
+* Limited the product-card cart flow to WooCommerce and WordPress storefronts instead of attempting unsupported storefront cart mutations.
+* Improved WordPress store relinking so plugin installs can attach cleanly to an already-connected Zanderio store during reconnect and portal-first install flows.
+
 = 1.2.2 =
 * Fixed a small streaming-cursor rendering issue that could show an empty message bubble before streamed text arrived.
 
