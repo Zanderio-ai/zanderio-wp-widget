@@ -1,14 +1,15 @@
 /**
  * Zanderio Widget — ProductCard
  *
- * Renders a single product inside the chat conversation with a compact
- * option summary and a cart-only CTA.
+ * Renders a single product inside the chat conversation with compact
+ * option summary and storefront-aware actions.
  *
  * @param {{ product, isSingle?, onAddToCart? }} props
  *
  * @module components/products/product-card
  */
 
+import { useState } from "react";
 import { IoCartOutline } from "react-icons/io5";
 
 const pluralize = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -46,7 +47,9 @@ const requiresProductPageSelection = (product) => {
   const hasOptionGroups =
     Array.isArray(product.option_groups) && product.option_groups.length > 0;
 
-  return !hasResolvedCartVariant(product) && (variantCount > 1 || hasOptionGroups);
+  return (
+    !hasResolvedCartVariant(product) && (variantCount > 1 || hasOptionGroups)
+  );
 };
 
 const buildVariantSummary = (product) => {
@@ -160,6 +163,7 @@ const colorSwatchStyle = (value) => ({
 });
 
 const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
+  const [isChoosingOptions, setIsChoosingOptions] = useState(false);
   const image =
     product.image || product.image_url || product.images?.[0] || null;
   const matchedVariantLabel = product.variant_label || null;
@@ -172,7 +176,8 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
     product.inventory_quantity === 0;
   const productUrl = getProductUrl(product);
   const requiresProductPage = requiresProductPageSelection(product);
-  const showSecondaryAction = Boolean(productUrl) && !requiresProductPage;
+  const showSecondaryAction =
+    Boolean(productUrl) && !requiresProductPage && !outOfStock;
 
   const openProductPage = () => {
     if (
@@ -180,10 +185,18 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
       typeof window === "undefined" ||
       typeof window.location?.assign !== "function"
     ) {
-      return;
+      return false;
     }
 
-    window.location.assign(productUrl);
+    const navigate = () => window.location.assign(productUrl);
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(navigate);
+    } else {
+      setTimeout(navigate, 0);
+    }
+
+    return true;
   };
 
   const handlePrimaryAction = (event) => {
@@ -194,7 +207,12 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
     }
 
     if (requiresProductPage) {
-      openProductPage();
+      setIsChoosingOptions(true);
+
+      if (!openProductPage()) {
+        setIsChoosingOptions(false);
+      }
+
       return;
     }
 
@@ -208,6 +226,52 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
   const handleViewDetails = (event) => {
     event.stopPropagation();
     openProductPage();
+  };
+
+  const renderPrimaryAction = () => {
+    if (requiresProductPage) {
+      return (
+        <button
+          type="button"
+          className="product-choice-btn"
+          onClick={handlePrimaryAction}
+          disabled={!productUrl || isChoosingOptions}
+          aria-label={
+            isChoosingOptions ? "Opening product options" : "Choose options"
+          }
+        >
+          {isChoosingOptions ? (
+            <span className="product-btn-spinner" aria-hidden="true" />
+          ) : null}
+          <span>{isChoosingOptions ? "Opening" : "Choose options"}</span>
+        </button>
+      );
+    }
+
+    if (outOfStock) {
+      return (
+        <button
+          type="button"
+          className="product-choice-btn"
+          disabled
+          aria-label="Out of stock"
+        >
+          <span>Out of stock</span>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className="product-icon-btn"
+        onClick={handlePrimaryAction}
+        aria-label="Add to cart"
+        title="Add to cart"
+      >
+        <IoCartOutline className="cart-icon" size={18} />
+      </button>
+    );
   };
 
   const formatPrice = () => {
@@ -355,7 +419,9 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
           </div>
         ) : null}
         {onAddToCart ? (
-          <div className="product-footer">
+          <div
+            className={`product-footer${requiresProductPage || outOfStock ? " product-footer--single" : ""}`}
+          >
             {showSecondaryAction ? (
               <button
                 type="button"
@@ -366,37 +432,7 @@ const ProductCard = ({ product, isSingle = false, onAddToCart }) => {
               </button>
             ) : null}
 
-            <button
-              type="button"
-              className={`product-primary-btn${showSecondaryAction ? "" : " product-primary-btn--full"}`}
-              onClick={handlePrimaryAction}
-              disabled={outOfStock || (requiresProductPage && !productUrl)}
-              aria-label={
-                outOfStock
-                  ? "Out of stock"
-                  : requiresProductPage
-                    ? "Choose options"
-                    : "Add to cart"
-              }
-              title={
-                outOfStock
-                  ? "Out of stock"
-                  : requiresProductPage
-                    ? "Choose options"
-                    : "Add to cart"
-              }
-            >
-              {requiresProductPage ? null : (
-                <IoCartOutline className="cart-icon" size={16} />
-              )}
-              <span>
-                {outOfStock
-                  ? "Out of stock"
-                  : requiresProductPage
-                    ? "Choose options"
-                    : "Add to cart"}
-              </span>
-            </button>
+            {renderPrimaryAction()}
           </div>
         ) : null}
       </div>

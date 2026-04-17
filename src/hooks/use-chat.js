@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { parseActions, normalizeProduct } from "../utils/content-blocks";
 import {
   createApiClient,
+  getConversations,
   getConversationMessages,
 } from "../services/api.service";
 
@@ -157,6 +158,10 @@ function normalizeHistoryMessages(history = []) {
   return restored;
 }
 
+function getResponsePayload(response) {
+  return response?.data?.data || response?.data || {};
+}
+
 export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const { socket, token } = deps;
   const [messages, setMessages] = useState([
@@ -258,6 +263,23 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
         let restoredMessages = [];
         const persistedConversationId = conversationIdRef.current;
 
+        const restoreLatestConversation = async () => {
+          const response = await getConversations(
+            client,
+            { storeId, visitorId },
+            requestConfig,
+          );
+          const payload = getResponsePayload(response);
+          const latestConversationId = payload?.conversations?.[0]?.id || null;
+
+          if (latestConversationId) {
+            conversationIdRef.current = latestConversationId;
+            persistConversationId(storeId, visitorId, latestConversationId);
+          }
+
+          return normalizeHistoryMessages(payload?.messages || []);
+        };
+
         if (persistedConversationId) {
           try {
             const response = await getConversationMessages(
@@ -266,14 +288,17 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
               requestConfig,
             );
             restoredMessages = normalizeHistoryMessages(
-              response?.data?.data?.messages || [],
+              getResponsePayload(response)?.messages || [],
             );
           } catch (error) {
             if (error?.response?.status === 404) {
               clearConversationId(storeId, visitorId);
               conversationIdRef.current = null;
+              restoredMessages = await restoreLatestConversation();
             }
           }
+        } else {
+          restoredMessages = await restoreLatestConversation();
         }
 
         if (restoredMessages.length > 0) {

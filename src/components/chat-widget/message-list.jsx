@@ -106,10 +106,28 @@ export default function MessageList({
             <ThinkingStatus status={thinkingStatus} />
             {thinkingStatus === "searching_products" && (
               <div className="product-skeleton-lane">
-                <div className="product-rail-hint" aria-hidden="true">
-                  Swipe to browse
+                <div className="product-skeleton-toolbar" aria-hidden="true">
+                  <div className="product-skeleton-status" />
+                  <div className="product-carousel-controls">
+                    <button
+                      type="button"
+                      className="product-carousel-btn"
+                      disabled
+                      tabIndex={-1}
+                    >
+                      &lt;
+                    </button>
+                    <button
+                      type="button"
+                      className="product-carousel-btn"
+                      disabled
+                      tabIndex={-1}
+                    >
+                      &gt;
+                    </button>
+                  </div>
                 </div>
-                <div className="product-rail-shell">
+                <div className="product-skeleton-viewport">
                   <div className="product-skeleton-row">
                     <div className="product-card-skeleton">
                       <div className="product-card-skeleton__image" />

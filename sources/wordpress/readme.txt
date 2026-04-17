@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.2.4
+Stable tag: 1.2.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,12 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.2.5 =
+* Restored product browsing to a clean arrow-based carousel with minimal store-themed previous and next controls.
+* Refined product-card actions so direct WooCommerce adds use a compact cart icon button and choose-options flows show a disabled in-button loader before navigation.
+* Updated the product loading state to match the restored arrow-based carousel layout.
+* Improved chat refresh recovery by restoring the latest visitor conversation when the persisted conversation ID is missing or stale.
 
 = 1.2.4 =
 * Replaced the arrow-based product carousel with a gesture-first horizontal swipe rail for browsing product results inside the chat widget.
