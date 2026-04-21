@@ -21,7 +21,6 @@
 
 import TextMessage from "./text-message";
 import ActionMessage from "./action-message";
-import SuggestedReplies from "./suggested-replies";
 import FeedbackButtons from "./feedback-buttons";
 import ProductCard from "../products/product-card";
 import ProductCarousel from "../products/product-carousel";
@@ -61,9 +60,6 @@ export default function MessageBubble({
           onShowToast={onShowToast}
         />
       ) : null;
-
-    case "suggestions":
-      return <SuggestedReplies items={msg.items} onSend={onSendMessage} />;
 
     case "feedback_request":
       return (

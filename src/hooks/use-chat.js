@@ -144,15 +144,6 @@ function normalizeHistoryMessages(history = []) {
         })),
       );
     }
-
-    if (Array.isArray(message?.suggestions) && message.suggestions.length > 0) {
-      restored.push({
-        id: Date.now() + Math.random(),
-        sender: "bot",
-        type: "suggestions",
-        items: message.suggestions,
-      });
-    }
   }
 
   return restored;
@@ -363,7 +354,6 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
       let accumulatedText = "";
       let accumulatedProducts = [];
       let accumulatedActions = [];
-      let accumulatedSuggestions = [];
       let sseBuffer = "";
 
       const doStream = async (retried) => {
@@ -461,9 +451,6 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
               } else if (evt.event === "cards") {
                 if (evt.data?.cards?.length)
                   accumulatedProducts = evt.data.cards;
-              } else if (evt.event === "suggestions") {
-                if (evt.data?.suggestions?.length)
-                  accumulatedSuggestions = evt.data.suggestions;
               } else if (evt.event === "updates") {
                 if (evt.data && typeof evt.data === "object") {
                   for (const nodeData of Object.values(evt.data)) {
@@ -473,9 +460,6 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
                     }
                     if (nodeData?.actions?.length) {
                       accumulatedActions = nodeData.actions;
-                    }
-                    if (nodeData?.suggestions?.length) {
-                      accumulatedSuggestions = nodeData.suggestions;
                     }
                   }
                 }
@@ -530,19 +514,6 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
                       sender: "bot",
                       ...action,
                     })),
-                  ]);
-                }
-
-                // Append suggestion chips if any
-                if (accumulatedSuggestions.length > 0) {
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: Date.now() + Math.random(),
-                      sender: "bot",
-                      type: "suggestions",
-                      items: accumulatedSuggestions,
-                    },
                   ]);
                 }
 
