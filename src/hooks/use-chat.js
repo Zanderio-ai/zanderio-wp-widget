@@ -1,19 +1,23 @@
 /**
  * @module hooks/use-chat
- * @description Central orchestrator for the conversation state. Streams AI
- * responses via native fetch + ReadableStream SSE. Owns the `messages` array
- * and provides every operation the UI needs to drive a chat session.
- *
- * @param {string|null} storeId
- * @param {string} visitorId
- * @param {string|null} sessionId
- * @param {object} settings
- * @param {{ socket: React.MutableRefObject, token: string|null }} deps
- * @returns {{ messages, sendMessage, isLoading, isTyping, updateWelcomeMessage }}
+ * @description Shared-runtime wrapper for the widget conversation state.
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { parseActions, normalizeProduct } from "../utils/content-blocks";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import {
+  CHAT_UI_V2_VERSION,
+  createChatRuntimeState,
+  hydrateChatRuntime,
+  readChatUiV2EventStream,
+  reduceChatRuntimeEvent,
+  selectConversationEnded,
+  selectRemainingMessages,
+  selectThinkingPhase,
+  selectWidgetMessages,
+  startLocalTurn,
+  stopActiveTurn,
+} from "@chat-runtime";
+import { normalizeProduct } from "../utils/content-blocks";
 import {
   createApiClient,
   getConversations,
@@ -33,13 +37,19 @@ function getStorageScope(storeId, visitorId) {
 
 function getPersistedThreadId(storeId, visitorId) {
   const scope = getStorageScope(storeId, visitorId);
-  if (!scope) return null;
+  if (!scope) {
+    return null;
+  }
+
   return localStorage.getItem(`${THREAD_KEY_PREFIX}${scope}`) || null;
 }
 
 function getPersistedConversationId(storeId, visitorId) {
   const scope = getStorageScope(storeId, visitorId);
-  if (!scope) return null;
+  if (!scope) {
+    return null;
+  }
+
   return localStorage.getItem(`${CONVERSATION_KEY_PREFIX}${scope}`) || null;
 }
 
@@ -72,111 +82,116 @@ function clearConversationId(storeId, visitorId) {
 }
 
 function generateThreadId(storeId) {
-  const rand = Math.random().toString(36).slice(2, 10);
-  return `wg_${storeId}_${rand}`;
-}
-
-/**
- * Parse SSE text into structured events.
- */
-function parseSSE(text) {
-  const events = [];
-  const blocks = text.split("\n\n");
-  for (const block of blocks) {
-    if (!block.trim()) continue;
-    let eventType = "message";
-    let data = "";
-    for (const line of block.split("\n")) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        data += line.slice(6);
-      }
-    }
-    if (data) {
-      try {
-        events.push({ event: eventType, data: JSON.parse(data) });
-      } catch {
-        events.push({ event: eventType, data });
-      }
-    }
-  }
-  return events;
-}
-
-function normalizeHistoryMessages(history = []) {
-  const restored = [];
-
-  for (const message of history) {
-    const senderType = message?.sender?.type;
-    const sender =
-      senderType === "agent" || senderType === "ai" ? "bot" : "user";
-
-    if (message?.content) {
-      restored.push({
-        id: Date.now() + Math.random(),
-        text: message.content,
-        sender,
-        type: "text",
-      });
-    }
-
-    if (sender !== "bot") {
-      continue;
-    }
-
-    if (Array.isArray(message?.products) && message.products.length > 0) {
-      restored.push({
-        id: Date.now() + Math.random(),
-        sender: "bot",
-        type: "products",
-        items: message.products.map(normalizeProduct),
-      });
-    }
-
-    if (Array.isArray(message?.actions) && message.actions.length > 0) {
-      const parsedActions = parseActions(message.actions);
-      restored.push(
-        ...parsedActions.map((action) => ({
-          id: Date.now() + Math.random(),
-          sender: "bot",
-          ...action,
-        })),
-      );
-    }
-  }
-
-  return restored;
+  const randomSuffix = Math.random().toString(36).slice(2, 10);
+  return `wg_${storeId}_${randomSuffix}`;
 }
 
 function getResponsePayload(response) {
   return response?.data?.data || response?.data || {};
 }
 
-export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
-  const { socket, token } = deps;
-  const [messages, setMessages] = useState([
+function buildInitialRuntimeState(welcomeMessage) {
+  return hydrateChatRuntime([
     {
-      id: 1,
-      text: settings.welcomeMessage || "Hi there!",
-      sender: "bot",
-      type: "text",
+      id: "welcome",
+      role: "assistant",
+      content: welcomeMessage || "Hi there!",
+      ts: new Date().toISOString(),
+      products: [],
+      actions: [],
     },
   ]);
+}
+
+function mapHistoryMessage(message, index) {
+  const senderType = message?.sender?.type;
+  const role =
+    senderType === "agent" || senderType === "ai" ? "assistant" : "user";
+
+  return {
+    id: String(message?.id || message?._id || `history_${index}`),
+    role,
+    content: message?.content || "",
+    ts: message?.createdAt || Date.now(),
+    products:
+      role === "assistant" && Array.isArray(message?.products)
+        ? message.products
+        : [],
+    actions:
+      role === "assistant" && Array.isArray(message?.actions)
+        ? message.actions
+        : [],
+  };
+}
+
+function buildLocalTurnError(message, code = "client_error") {
+  return {
+    version: CHAT_UI_V2_VERSION,
+    event: "turn.error",
+    data: {
+      turn_id: null,
+      code,
+      message,
+      retryable: false,
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
+function getRequestErrorMessage(status) {
+  if (status === 429) {
+    return "Daily conversation limit reached. Please try again tomorrow.";
+  }
+
+  if (status === 401) {
+    return "Session expired. Please refresh the page.";
+  }
+
+  if (status === 403) {
+    return "This store is not authorized for AI chat.";
+  }
+
+  if (status >= 500) {
+    return "AI assistant is temporarily unavailable. Please try again shortly.";
+  }
+
+  return `Request failed (${status}).`;
+}
+
+function normalizeWidgetMessages(messages) {
+  return messages.map((message) => {
+    if (message.type === "products") {
+      return {
+        ...message,
+        items: (message.items || []).map(normalizeProduct),
+      };
+    }
+
+    if (message.type === "product_card") {
+      return {
+        ...message,
+        product: message.product ? normalizeProduct(message.product) : null,
+      };
+    }
+
+    return message;
+  });
+}
+
+export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
+  const { socket, token } = deps;
+  const [runtimeState, setRuntimeState] = useState(() =>
+    buildInitialRuntimeState(settings.welcomeMessage),
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [thinkingStatus, setThinkingStatus] = useState(null);
-  const [conversationEnded, setConversationEnded] = useState(null); // { reason, message }
-  const [remainingMessages, setRemainingMessages] = useState(null);
   const threadIdRef = useRef(null);
   const conversationIdRef = useRef(null);
   const abortRef = useRef(null);
   const historyLoadedRef = useRef(false);
   const historyScopeRef = useRef(null);
   const tokenRef = useRef(token);
-  const lastTraceIdRef = useRef(null);
 
-  // Keep tokenRef in sync so the streaming closure always has the latest JWT
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
@@ -190,14 +205,20 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     import.meta.env.VITE_API_BASE_URL ||
     "https://dev-api.zanderio.ai";
 
-  const updateWelcomeMessage = useCallback((msg) => {
-    setMessages((prev) => {
-      if (prev.length === 1 && prev[0].id === 1) {
-        return [{ ...prev[0], text: msg }];
-      }
-      return prev;
-    });
-  }, []);
+  const messages = useMemo(
+    () =>
+      normalizeWidgetMessages(
+        selectWidgetMessages(runtimeState, {
+          aiUrl,
+          token,
+        }),
+      ),
+    [aiUrl, runtimeState, token],
+  );
+
+  const thinkingStatus = selectThinkingPhase(runtimeState);
+  const conversationEnded = selectConversationEnded(runtimeState);
+  const remainingMessages = selectRemainingMessages(runtimeState);
 
   useEffect(() => {
     const scope = getStorageScope(storeId, visitorId);
@@ -215,30 +236,30 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
 
     threadIdRef.current = getPersistedThreadId(storeId, visitorId);
     conversationIdRef.current = getPersistedConversationId(storeId, visitorId);
-    lastTraceIdRef.current = null;
 
-    setMessages([
-      {
-        id: 1,
-        text: settings.welcomeMessage || "Hi there!",
-        sender: "bot",
-        type: "text",
-      },
-    ]);
+    setRuntimeState(buildInitialRuntimeState(settings.welcomeMessage));
     setIsLoading(false);
     setIsTyping(false);
-    setThinkingStatus(null);
-    setConversationEnded(null);
-    setRemainingMessages(null);
-  }, [storeId, visitorId, settings.welcomeMessage]);
+  }, [settings.welcomeMessage, storeId, visitorId]);
 
-  // ── Restore thread + message history on mount ──
   useEffect(() => {
-    if (!storeId || !visitorId || historyLoadedRef.current || !token) return;
+    if (!runtimeState.conversationId || !storeId || !visitorId) {
+      return;
+    }
+
+    conversationIdRef.current = runtimeState.conversationId;
+    persistConversationId(storeId, visitorId, runtimeState.conversationId);
+  }, [runtimeState.conversationId, storeId, visitorId]);
+
+  useEffect(() => {
+    if (!storeId || !visitorId || historyLoadedRef.current || !token) {
+      return;
+    }
+
     historyLoadedRef.current = true;
 
-    const existing = getPersistedThreadId(storeId, visitorId);
-    threadIdRef.current = existing;
+    const existingThreadId = getPersistedThreadId(storeId, visitorId);
+    threadIdRef.current = existingThreadId;
     conversationIdRef.current = getPersistedConversationId(storeId, visitorId);
 
     const controller = new AbortController();
@@ -268,7 +289,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
             persistConversationId(storeId, visitorId, latestConversationId);
           }
 
-          return normalizeHistoryMessages(payload?.messages || []);
+          return (payload?.messages || []).map(mapHistoryMessage);
         };
 
         if (persistedConversationId) {
@@ -278,9 +299,9 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
               { conversationId: persistedConversationId },
               requestConfig,
             );
-            restoredMessages = normalizeHistoryMessages(
-              getResponsePayload(response)?.messages || [],
-            );
+            restoredMessages = (
+              getResponsePayload(response)?.messages || []
+            ).map(mapHistoryMessage);
           } catch (error) {
             if (error?.response?.status === 404) {
               clearConversationId(storeId, visitorId);
@@ -293,326 +314,160 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
         }
 
         if (restoredMessages.length > 0) {
-          setMessages((prev) => [...prev, ...restoredMessages]);
+          setRuntimeState(
+            hydrateChatRuntime([
+              {
+                id: "welcome",
+                role: "assistant",
+                content: settings.welcomeMessage || "Hi there!",
+                ts: new Date().toISOString(),
+                products: [],
+                actions: [],
+              },
+              ...restoredMessages,
+            ]),
+          );
         }
       } catch {
-        /* history load failed silently */
+        // History load failures remain silent in the widget.
       }
     })();
 
     return () => controller.abort();
-  }, [apiUrl, storeId, token, visitorId]);
+  }, [apiUrl, settings.welcomeMessage, storeId, token, visitorId]);
 
-  // ── Request a fresh token via Socket.IO ──
   const requestTokenRefresh = useCallback(() => {
-    const s = socket?.current;
-    if (s?.connected) {
-      s.emit("widget:token:request");
+    const currentSocket = socket?.current;
+    if (currentSocket?.connected) {
+      currentSocket.emit("widget:token:request");
     }
   }, [socket]);
 
-  // ── Send message + stream response ──
+  const applyRuntimeEvent = useCallback((event) => {
+    setRuntimeState((previousState) =>
+      reduceChatRuntimeEvent(previousState, event),
+    );
+  }, []);
+
+  const updateWelcomeMessage = useCallback((message) => {
+    setRuntimeState((previousState) => {
+      const onlyWelcomeMessage =
+        previousState.messageOrder.length === 1 &&
+        previousState.messageOrder[0] === "welcome" &&
+        previousState.artifactOrder.length === 0;
+
+      if (!onlyWelcomeMessage) {
+        return previousState;
+      }
+
+      return buildInitialRuntimeState(message);
+    });
+  }, []);
+
   const sendMessage = useCallback(
     async (text) => {
-      if (!text.trim() || isLoading || !storeId) return;
+      if (!text.trim() || isLoading || !storeId) {
+        return;
+      }
 
-      // Ensure thread ID
       if (!threadIdRef.current) {
         threadIdRef.current = generateThreadId(storeId);
         persistThreadId(storeId, visitorId, threadIdRef.current);
       }
 
-      // Append user message
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + Math.random(),
-          text,
-          sender: "user",
-          type: "text",
-        },
-      ]);
+      const turnSeed = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const userMessageId = `widget_user_${turnSeed}`;
+      const assistantMessageId = `widget_assistant_${turnSeed}`;
 
-      // Create bot placeholder
-      const botMsgId = Date.now() + Math.random();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: botMsgId,
-          text: "",
-          sender: "bot",
-          type: "text",
-          isStreaming: true,
-        },
-      ]);
+      setRuntimeState((previousState) =>
+        startLocalTurn(previousState, {
+          userMessageId,
+          userContent: text,
+          assistantMessageId,
+          userCreatedAt: new Date().toISOString(),
+          assistantCreatedAt: new Date().toISOString(),
+        }),
+      );
 
       setIsLoading(true);
       setIsTyping(true);
       abortRef.current = new AbortController();
 
-      const url = `${aiUrl}/threads/${threadIdRef.current}/stream`;
-      let accumulatedText = "";
-      let accumulatedProducts = [];
-      let accumulatedActions = [];
-      let sseBuffer = "";
+      const streamUrl = `${aiUrl}/threads/${threadIdRef.current}/stream`;
 
       const doStream = async (retried) => {
-        try {
-          const jwt = tokenRef.current;
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-            },
-            body: JSON.stringify({
-              store_id: storeId,
-              message: text,
-              source: "widget",
-            }),
-            signal: abortRef.current.signal,
-          });
+        const jwt = tokenRef.current;
+        const response = await fetch(streamUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          },
+          body: JSON.stringify({
+            store_id: storeId,
+            message: text,
+            source: "widget",
+          }),
+          signal: abortRef.current.signal,
+        });
 
-          if (!response.ok) {
-            const status = response.status;
-
-            // On 401, request a token refresh and retry once
-            if (status === 401 && !retried) {
-              requestTokenRefresh();
-              // Wait briefly for the refreshed token to arrive
-              await new Promise((r) => setTimeout(r, 1500));
-              return doStream(true);
-            }
-
-            let errorText;
-            if (status === 429) {
-              errorText =
-                "Daily conversation limit reached. Please try again tomorrow.";
-            } else if (status === 401) {
-              errorText = "Session expired. Please refresh the page.";
-            } else if (status === 403) {
-              errorText = "This store is not authorized for AI chat.";
-            } else if (status >= 500) {
-              errorText =
-                "AI assistant is temporarily unavailable. Please try again shortly.";
-            } else {
-              errorText = `Request failed (${status}).`;
-            }
-
-            // Replace bot placeholder with error
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === botMsgId
-                  ? { ...m, text: errorText, isStreaming: false, isError: true }
-                  : m,
-              ),
-            );
-            return;
+        if (!response.ok) {
+          if (response.status === 401 && !retried) {
+            requestTokenRefresh();
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            return doStream(true);
           }
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            sseBuffer += decoder.decode(value, { stream: true });
-            const parts = sseBuffer.split("\n\n");
-            sseBuffer = parts.pop() || "";
-
-            const events = parseSSE(parts.join("\n\n"));
-
-            for (const evt of events) {
-              if (evt.event === "messages/partial") {
-                const chunks = Array.isArray(evt.data) ? evt.data : [evt.data];
-                for (const chunk of chunks) {
-                  if (chunk?.content) {
-                    accumulatedText += chunk.content;
-                  }
-                }
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === botMsgId ? { ...m, text: accumulatedText } : m,
-                  ),
-                );
-              } else if (evt.event === "messages/replace") {
-                if (evt.data?.content) {
-                  accumulatedText = evt.data.content;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === botMsgId ? { ...m, text: accumulatedText } : m,
-                    ),
-                  );
-                }
-              } else if (evt.event === "thinking") {
-                const status = evt.data?.status;
-                if (status) setThinkingStatus(status);
-              } else if (evt.event === "cards") {
-                if (evt.data?.cards?.length)
-                  accumulatedProducts = evt.data.cards;
-              } else if (evt.event === "updates") {
-                if (evt.data && typeof evt.data === "object") {
-                  for (const nodeData of Object.values(evt.data)) {
-                    const prods = nodeData?.products || nodeData?.cards;
-                    if (prods?.length) {
-                      accumulatedProducts = prods;
-                    }
-                    if (nodeData?.actions?.length) {
-                      accumulatedActions = nodeData.actions;
-                    }
-                  }
-                }
-              } else if (evt.event === "end") {
-                // Capture trace_id for feedback
-                if (evt.data?.trace_id) {
-                  lastTraceIdRef.current = evt.data.trace_id;
-                }
-                if (evt.data?.conversation_id) {
-                  conversationIdRef.current = evt.data.conversation_id;
-                  persistConversationId(
-                    storeId,
-                    visitorId,
-                    evt.data.conversation_id,
-                  );
-                }
-                if (evt.data?.remaining_messages != null) {
-                  setRemainingMessages(evt.data.remaining_messages);
-                }
-
-                setThinkingStatus(null);
-
-                // Finalize the bot text message
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === botMsgId
-                      ? { ...m, text: accumulatedText, isStreaming: false }
-                      : m,
-                  ),
-                );
-
-                // Append product carousel if any
-                if (accumulatedProducts.length > 0) {
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: Date.now() + Math.random(),
-                      sender: "bot",
-                      type: "products",
-                      items: accumulatedProducts.map(normalizeProduct),
-                    },
-                  ]);
-                }
-
-                // Append action buttons if any
-                if (accumulatedActions.length > 0) {
-                  const parsed = parseActions(accumulatedActions);
-                  setMessages((prev) => [
-                    ...prev,
-                    ...parsed.map((action) => ({
-                      id: Date.now() + Math.random(),
-                      sender: "bot",
-                      ...action,
-                    })),
-                  ]);
-                }
-
-                // Append feedback buttons if we have a trace_id
-                if (lastTraceIdRef.current) {
-                  const traceId = lastTraceIdRef.current;
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: Date.now() + Math.random(),
-                      sender: "bot",
-                      type: "feedback_request",
-                      traceId,
-                      aiUrl,
-                      token: tokenRef.current,
-                    },
-                  ]);
-                }
-              } else if (evt.event === "conversation_ended") {
-                const reason = evt.data?.reason || "message_limit";
-                const endMsg =
-                  evt.data?.message ||
-                  "This conversation has ended. Start a new chat!";
-                // Show the end message as a bot text message
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === botMsgId
-                      ? { ...m, text: endMsg, isStreaming: false }
-                      : m,
-                  ),
-                );
-                // Append any end actions
-                if (evt.data?.actions?.length) {
-                  const parsed = parseActions(evt.data.actions);
-                  setMessages((prev) => [
-                    ...prev,
-                    ...parsed.map((action) => ({
-                      id: Date.now() + Math.random(),
-                      sender: "bot",
-                      ...action,
-                    })),
-                  ]);
-                }
-                setConversationEnded({ reason, message: endMsg });
-              } else if (evt.event === "error") {
-                const errMsg =
-                  evt.data?.error || "An error occurred. Please try again.";
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === botMsgId
-                      ? {
-                          ...m,
-                          text: errMsg,
-                          isStreaming: false,
-                          isError: true,
-                        }
-                      : m,
-                  ),
-                );
-              }
-            }
-          }
-        } catch (err) {
-          if (err.name !== "AbortError") {
-            if (!accumulatedText) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === botMsgId
-                    ? {
-                        ...m,
-                        text: "Connection lost. Please try again.",
-                        isStreaming: false,
-                        isError: true,
-                      }
-                    : m,
-                ),
-              );
-            } else {
-              // Keep partial text, just stop streaming
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === botMsgId ? { ...m, isStreaming: false } : m,
-                ),
-              );
-            }
-          }
+          applyRuntimeEvent(
+            buildLocalTurnError(
+              getRequestErrorMessage(response.status),
+              `http_${response.status}`,
+            ),
+          );
+          return;
         }
+
+        if (!response.body) {
+          applyRuntimeEvent(
+            buildLocalTurnError(
+              "AI service returned an empty stream.",
+              "empty_stream",
+            ),
+          );
+          return;
+        }
+
+        await readChatUiV2EventStream(response.body, (event) => {
+          applyRuntimeEvent(event);
+        });
       };
 
       try {
         await doStream(false);
+      } catch (caughtError) {
+        if (caughtError.name !== "AbortError") {
+          applyRuntimeEvent(
+            buildLocalTurnError(
+              "Connection lost. Please try again.",
+              "network_error",
+            ),
+          );
+        }
       } finally {
         setIsLoading(false);
         setIsTyping(false);
-        setThinkingStatus(null);
         abortRef.current = null;
+        setRuntimeState((previousState) => stopActiveTurn(previousState));
       }
     },
-    [storeId, aiUrl, isLoading, requestTokenRefresh],
+    [
+      aiUrl,
+      applyRuntimeEvent,
+      isLoading,
+      requestTokenRefresh,
+      storeId,
+      visitorId,
+    ],
   );
 
   const startNewChat = useCallback(() => {
@@ -620,17 +475,10 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     clearConversationId(storeId, visitorId);
     threadIdRef.current = null;
     conversationIdRef.current = null;
-    setMessages([
-      {
-        id: 1,
-        text: settings.welcomeMessage || "Hi there!",
-        sender: "bot",
-        type: "text",
-      },
-    ]);
-    setConversationEnded(null);
-    setRemainingMessages(null);
-  }, [storeId, visitorId, settings.welcomeMessage]);
+    setRuntimeState(buildInitialRuntimeState(settings.welcomeMessage));
+    setIsLoading(false);
+    setIsTyping(false);
+  }, [settings.welcomeMessage, storeId, visitorId]);
 
   return {
     messages,

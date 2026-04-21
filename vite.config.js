@@ -1,8 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Unified Vite config for the Zanderio Chat Widget.
@@ -70,6 +75,23 @@ const cfg = TARGETS[target] || TARGETS.cdn;
 
 export default defineConfig({
   plugins: [react()],
+
+  resolve: {
+    alias: {
+      "@chat-runtime": path.resolve(
+        __dirname,
+        "../../client/app/src/features/chat-runtime",
+      ),
+    },
+  },
+
+  server: {
+    fs: {
+      allow: [
+        path.resolve(__dirname, "../../client/app/src/features/chat-runtime"),
+      ],
+    },
+  },
 
   build: {
     outDir: cfg.outDir,
