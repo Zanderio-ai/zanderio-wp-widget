@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,12 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.3.1 =
+* Fixed confirmation cards not displaying description text or action buttons — booking confirmations and cart flows now render correctly.
+* Fixed wizard step progress not showing step descriptions.
+* Improved SSE stream version validation to handle both numeric and string version numbers from backend.
+* Consolidated form field schema for improved type safety across all widget surfaces.
 
 = 1.3.0 =
 * Fixed add-to-cart button not appearing for product recommendations — products now render through the full WooCommerce ProductCard / ProductCarousel regardless of whether they arrive via the new or legacy pipeline.

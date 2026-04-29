@@ -248,22 +248,36 @@ function SelectArtifact({ artifact, onSendMessage }) {
 // ── Confirm artifact (booking summary, generic confirmation) ──────────────────
 
 function ConfirmArtifact({ artifact, onSendMessage }) {
-  const { title, summary, actions = [] } = artifact.payload;
+  const {
+    title,
+    description,
+    summary_fields,
+    primary_action,
+    secondary_action,
+  } = artifact.payload;
+  const actions = [primary_action, secondary_action].filter(Boolean);
   const [done, setDone] = useState(false);
 
   return (
     <div className="artifact-confirm">
       {title && <p className="artifact-confirm__title">{title}</p>}
-      {summary && <p className="artifact-confirm__summary">{summary}</p>}
+      {description && <p className="artifact-confirm__summary">{description}</p>}
+      {summary_fields && summary_fields.length > 0 && (
+        <dl className="artifact-confirm__fields">
+          {summary_fields.map((f) => (
+            <div key={f.label} className="artifact-confirm__field-row">
+              <dt className="artifact-confirm__field-label">{f.label}</dt>
+              <dd className="artifact-confirm__field-value">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {actions.length > 0 && !done && (
         <div className="artifact-confirm__actions">
           {actions.map((action, i) => {
             const isPrimary = i === 0;
             const handleClick = () => {
-              if (action.sentinel_value) {
-                setDone(true);
-                onSendMessage(action.sentinel_value);
-              } else if (action.url) {
+              if (action.url) {
                 openUrl(action.url);
               } else {
                 setDone(true);
@@ -437,8 +451,8 @@ function WizardArtifact({ artifact }) {
         ))}
       </div>
       <p className="artifact-wizard__step-title">{step.title}</p>
-      {step.content && (
-        <p className="artifact-wizard__step-content">{step.content}</p>
+      {step.description && (
+        <p className="artifact-wizard__step-content">{step.description}</p>
       )}
     </div>
   );
