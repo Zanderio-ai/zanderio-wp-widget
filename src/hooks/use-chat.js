@@ -5,8 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  CHAT_UI_V2_VERSION,
-  createChatRuntimeState,
+  CHAT_UI_VERSION,
   hydrateChatRuntime,
   readChatUiV2EventStream,
   reduceChatRuntimeEvent,
@@ -126,7 +125,7 @@ function mapHistoryMessage(message, index) {
 
 function buildLocalTurnError(message, code = "client_error") {
   return {
-    version: CHAT_UI_V2_VERSION,
+    version: CHAT_UI_VERSION,
     event: "turn.error",
     data: {
       turn_id: null,
@@ -158,19 +157,70 @@ function getRequestErrorMessage(status) {
   return `Request failed (${status}).`;
 }
 
+function createAbortError() {
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
+}
+
 function normalizeWidgetMessages(messages) {
   return messages.map((message) => {
+    // Legacy product list → card artifact (normalized)
     if (message.type === "products") {
       return {
-        ...message,
-        items: (message.items || []).map(normalizeProduct),
+        id: message.id,
+        sender: message.sender,
+        type: "artifact",
+        artifact: {
+          kind: "card",
+          payload: { items: (message.items || []).map(normalizeProduct) },
+        },
       };
     }
 
+    // Legacy single product → card artifact (featured, normalized)
     if (message.type === "product_card") {
+      const product = message.product
+        ? normalizeProduct(message.product)
+        : null;
+      return {
+        id: message.id,
+        sender: message.sender,
+        type: "artifact",
+        artifact: {
+          kind: "card",
+          payload: { items: product ? [product] : [], mode: "featured" },
+        },
+      };
+    }
+
+    // Legacy feedback_request → feedback artifact
+    if (message.type === "feedback_request") {
+      return {
+        id: message.id,
+        sender: message.sender,
+        type: "artifact",
+        artifact: {
+          kind: "feedback",
+          payload: { trace_id: message.traceId || null },
+        },
+        aiUrl: message.aiUrl,
+        token: message.token,
+      };
+    }
+
+    // New card artifact — normalize items for WooCommerce ProductCard compatibility
+    if (message.type === "artifact" && message.artifact?.kind === "card") {
+      const payload = message.artifact.payload || {};
       return {
         ...message,
-        product: message.product ? normalizeProduct(message.product) : null,
+        artifact: {
+          ...message.artifact,
+          payload: {
+            ...payload,
+            items: (payload.items || []).map(normalizeProduct),
+          },
+        },
       };
     }
 
@@ -191,10 +241,34 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const historyLoadedRef = useRef(false);
   const historyScopeRef = useRef(null);
   const tokenRef = useRef(token);
+  const tokenWaitersRef = useRef([]);
 
   useEffect(() => {
     tokenRef.current = token;
+
+    if (!tokenWaitersRef.current.length || !token) {
+      return;
+    }
+
+    tokenWaitersRef.current = tokenWaitersRef.current.filter((waiter) => {
+      if (token === waiter.previousToken) {
+        return true;
+      }
+
+      waiter.resolve(token);
+      return false;
+    });
   }, [token]);
+
+  useEffect(
+    () => () => {
+      tokenWaitersRef.current.forEach((waiter) =>
+        waiter.reject(createAbortError()),
+      );
+      tokenWaitersRef.current = [];
+    },
+    [],
+  );
 
   const aiUrl =
     import.meta.env.VITE_AI_URL ||
@@ -340,8 +414,52 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     const currentSocket = socket?.current;
     if (currentSocket?.connected) {
       currentSocket.emit("widget:token:request");
+      return true;
     }
+
+    return false;
   }, [socket]);
+
+  const waitForFreshToken = useCallback((previousToken, signal) => {
+    if (tokenRef.current && tokenRef.current !== previousToken) {
+      return Promise.resolve(tokenRef.current);
+    }
+
+    return new Promise((resolve, reject) => {
+      const waiter = {
+        previousToken,
+        resolve: (nextToken) => {
+          cleanup();
+          resolve(nextToken);
+        },
+        reject: (error) => {
+          cleanup();
+          reject(error);
+        },
+      };
+
+      const cleanup = () => {
+        tokenWaitersRef.current = tokenWaitersRef.current.filter(
+          (candidate) => candidate !== waiter,
+        );
+        window.clearTimeout(timeoutId);
+        if (signal) {
+          signal.removeEventListener("abort", handleAbort);
+        }
+      };
+
+      const handleAbort = () => waiter.reject(createAbortError());
+      const timeoutId = window.setTimeout(() => {
+        waiter.reject(new Error("Token refresh timed out."));
+      }, 5000);
+
+      tokenWaitersRef.current.push(waiter);
+
+      if (signal) {
+        signal.addEventListener("abort", handleAbort, { once: true });
+      }
+    });
+  }, []);
 
   const applyRuntimeEvent = useCallback((event) => {
     setRuntimeState((previousState) =>
@@ -413,9 +531,20 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
 
         if (!response.ok) {
           if (response.status === 401 && !retried) {
-            requestTokenRefresh();
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            return doStream(true);
+            if (tokenRef.current && tokenRef.current !== jwt) {
+              return doStream(true);
+            }
+
+            if (requestTokenRefresh()) {
+              try {
+                await waitForFreshToken(jwt, abortRef.current?.signal);
+                return doStream(true);
+              } catch (error) {
+                if (error?.name === "AbortError") {
+                  throw error;
+                }
+              }
+            }
           }
 
           applyRuntimeEvent(
@@ -467,6 +596,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
       requestTokenRefresh,
       storeId,
       visitorId,
+      waitForFreshToken,
     ],
   );
 

@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.2.5
+Stable tag: 1.3.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,14 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.3.0 =
+* Fixed add-to-cart button not appearing for product recommendations — products now render through the full WooCommerce ProductCard / ProductCarousel regardless of whether they arrive via the new or legacy pipeline.
+* Upgraded WordPress widget to the full 10-kind artifact taxonomy (card, select, confirm, notice, feedback, list, table, wizard, text, form), matching the general CDN widget and client-side playground exactly.
+* New artifact kinds (booking confirmation flows, datetime slot pickers, quick-reply chips, data tables, multi-step wizard progress, inline forms, notices) now render correctly.
+* Removed all legacy message-type dispatching — all AI responses flow through the unified artifact pipeline; product normalization happens once in the message hook before rendering.
+* Added searching_calendar skeleton loading state to match the general widget.
+* Removed dependency on the separate FeedbackButtons component; feedback is now handled inline via the feedback artifact kind.
 
 = 1.2.5 =
 * Restored product browsing to a clean arrow-based carousel with minimal store-themed previous and next controls.

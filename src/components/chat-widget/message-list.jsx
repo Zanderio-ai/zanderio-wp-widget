@@ -60,10 +60,6 @@ export default function MessageList({
       onScroll={updateAutoScrollState}
     >
       {messages.map((msg, idx) => {
-        if (msg.type === "action") {
-          return null;
-        }
-
         // Don't render an empty streaming bubble — the thinking indicator handles this
         if (msg.isStreaming && !msg.text?.length) {
           return null;
@@ -104,7 +100,8 @@ export default function MessageList({
         (thinkingStatus ? (
           <>
             <ThinkingStatus status={thinkingStatus} />
-            {thinkingStatus === "searching_products" && (
+            {(thinkingStatus === "searching_products" ||
+              thinkingStatus === "searching_calendar") && (
               <div className="product-skeleton-lane">
                 <div className="product-skeleton-toolbar" aria-hidden="true">
                   <div className="product-skeleton-status" />
