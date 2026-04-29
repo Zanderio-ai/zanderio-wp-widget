@@ -22,6 +22,7 @@ import ChatHeader from "./chat-header";
 import MessageList from "./message-list";
 import InputBar from "./input-bar";
 import BookingSheet from "./booking-sheet";
+import CartPreviewSheet from "./cart-preview-sheet";
 import poweredByIcon from "../../assets/powered-by-icon.svg?raw";
 
 function hexToRgb(color) {
@@ -95,6 +96,12 @@ export default function ChatWindow({
   startNewChat,
   onSend,
   onClose,
+  onAddToCart,
+  cartPreview,
+  onUpdateCartPreviewQty,
+  onCloseCartPreview,
+  onConfirmCartPreview,
+  isCartPreviewSubmitting,
   onShowToast,
   style,
 }) {
@@ -176,6 +183,7 @@ export default function ChatWindow({
         thinkingStatus={thinkingStatus}
         widgetConfig={widgetConfig}
         onSendMessage={onSend}
+        onAddToCart={onAddToCart}
         onShowToast={onShowToast}
       />
 
@@ -186,6 +194,18 @@ export default function ChatWindow({
           artifact={activeOverlayArtifact}
           accentColor={accentColor}
           onSend={onSend}
+        />
+      )}
+
+      {/* Cart preview sheet — rendered when cartPreview state is set */}
+      {cartPreview && (
+        <CartPreviewSheet
+          preview={cartPreview}
+          onClose={onCloseCartPreview}
+          onConfirm={onConfirmCartPreview}
+          onUpdateQty={onUpdateCartPreviewQty}
+          isSubmitting={isCartPreviewSubmitting}
+          accentColor={accentColor}
         />
       )}
 

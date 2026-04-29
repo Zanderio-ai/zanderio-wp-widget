@@ -51,6 +51,7 @@ export default function MessageList({
   thinkingStatus,
   widgetConfig,
   onSendMessage,
+  onAddToCart,
   onShowToast,
 }) {
   const messagesRef = useRef(null);
@@ -106,6 +107,7 @@ export default function MessageList({
               msg={displayMsg}
               widgetConfig={widgetConfig}
               onSendMessage={onSendMessage}
+              onAddToCart={onAddToCart}
               onShowToast={onShowToast}
               onRetry={
                 msg.isError

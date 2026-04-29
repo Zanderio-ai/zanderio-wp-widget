@@ -43,7 +43,7 @@ function openUrl(url) {
 
 // ── Product card (used by "card" artifact + legacy history messages) ──────────
 
-function ProductCardItem({ item, compact = false }) {
+function ProductCardItem({ item, compact = false, onAddToCart }) {
   const price =
     item.price != null
       ? new Intl.NumberFormat("en-US", {
@@ -116,14 +116,42 @@ function ProductCardItem({ item, compact = false }) {
             {item.variant_summary}
           </p>
         )}
-        {item.url && (
-          <button
-            type="button"
-            className="artifact-product-card__cta"
-            onClick={() => openUrl(item.url)}
-          >
-            View product
-          </button>
+        {(item.url || onAddToCart) && (
+          <div className="artifact-product-card__footer">
+            {item.url && (
+              <button
+                type="button"
+                className="artifact-product-card__cta"
+                onClick={() => openUrl(item.url)}
+              >
+                View product
+              </button>
+            )}
+            {onAddToCart && (
+              <button
+                type="button"
+                className="artifact-product-card__cart-btn"
+                disabled={!item.in_stock}
+                title={item.in_stock === false ? "Out of stock" : "Add to cart"}
+                onClick={() => onAddToCart(item)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -132,7 +160,7 @@ function ProductCardItem({ item, compact = false }) {
 
 // ── Card artifact (product carousel / featured) ───────────────────────────────
 
-function CardArtifact({ artifact }) {
+function CardArtifact({ artifact, onAddToCart }) {
   const { items = [], mode } = artifact.payload;
   const [offset, setOffset] = useState(0);
   const PAGE = 2;
@@ -145,7 +173,7 @@ function CardArtifact({ artifact }) {
   if (mode === "featured" || total === 1) {
     return (
       <div className="artifact-card artifact-card--featured">
-        <ProductCardItem item={items[0]} />
+        <ProductCardItem item={items[0]} onAddToCart={onAddToCart} />
       </div>
     );
   }
@@ -177,7 +205,12 @@ function CardArtifact({ artifact }) {
       </div>
       <div className="artifact-card__viewport">
         {items.slice(offset, offset + PAGE + 1).map((item) => (
-          <ProductCardItem key={item.id} item={item} compact />
+          <ProductCardItem
+            key={item.id}
+            item={item}
+            compact
+            onAddToCart={onAddToCart}
+          />
         ))}
       </div>
     </div>
@@ -446,12 +479,36 @@ function TableArtifact({ artifact }) {
 
 // ── Wizard artifact ───────────────────────────────────────────────────────────
 
-function WizardArtifact({ artifact }) {
-  const { steps = [], current_step = 0 } = artifact.payload;
+function WizardArtifact({ artifact, onSendMessage }) {
+  const { steps = [], current_step = 0, domain } = artifact.payload;
+
+  // Add form state for booking domain wizards (must be before any conditional return)
+  const [values, setValues] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
   if (steps.length === 0) return null;
 
   const idx = Math.min(Math.max(current_step, 0), steps.length - 1);
   const step = steps[idx];
+  const fields = step.fields || [];
+  const isBookingWizard = domain === "booking";
+
+  const handleFieldSubmit = (e) => {
+    e.preventDefault();
+    setSubmitted(true);
+
+    if (isBookingWizard) {
+      // Build JSON payload with field values keyed by field ID
+      const answers = {};
+      fields.forEach((f) => {
+        answers[f.key] = values[f.key] || "";
+      });
+      // Send proper sentinel format for booking
+      const payload = JSON.stringify(answers);
+      const timezone = artifact.payload.timezone || "UTC";
+      onSendMessage(`__booking_answers__${payload}|timezone=${timezone}`);
+    }
+  };
 
   return (
     <div className="artifact-wizard">
@@ -473,6 +530,39 @@ function WizardArtifact({ artifact }) {
       <p className="artifact-wizard__step-title">{step.title}</p>
       {step.description && (
         <p className="artifact-wizard__step-content">{step.description}</p>
+      )}
+
+      {/* Render form fields if present and not yet submitted */}
+      {fields.length > 0 && !submitted && isBookingWizard && (
+        <form className="artifact-form" onSubmit={handleFieldSubmit}>
+          {fields.map((field) => (
+            <div key={field.key} className="artifact-form__field">
+              <label
+                className="artifact-form__label"
+                htmlFor={`awf-${field.key}`}
+              >
+                {field.label}
+                {field.required && (
+                  <span className="artifact-form__required"> *</span>
+                )}
+              </label>
+              <input
+                id={`awf-${field.key}`}
+                type={field.type || "text"}
+                className="artifact-form__input"
+                placeholder={field.placeholder || ""}
+                required={field.required}
+                value={values[field.key] || ""}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, [field.key]: e.target.value }))
+                }
+              />
+            </div>
+          ))}
+          <button type="submit" className="artifact-form__submit">
+            {artifact.payload.submit_label || "Submit"}
+          </button>
+        </form>
       )}
     </div>
   );
@@ -612,10 +702,16 @@ function LegacyFeedbackRequest({ msg }) {
 
 // ── ArtifactMessage dispatcher ────────────────────────────────────────────────
 
-function ArtifactMessage({ artifact, onSendMessage, aiUrl, token }) {
+function ArtifactMessage({
+  artifact,
+  onSendMessage,
+  aiUrl,
+  token,
+  onAddToCart,
+}) {
   switch (artifact.kind) {
     case "card":
-      return <CardArtifact artifact={artifact} />;
+      return <CardArtifact artifact={artifact} onAddToCart={onAddToCart} />;
 
     case "select":
       // Overlay selects are rendered as a bottom sheet by ChatWindow.
@@ -667,7 +763,9 @@ function ArtifactMessage({ artifact, onSendMessage, aiUrl, token }) {
       return <TableArtifact artifact={artifact} />;
 
     case "wizard":
-      return <WizardArtifact artifact={artifact} />;
+      return (
+        <WizardArtifact artifact={artifact} onSendMessage={onSendMessage} />
+      );
 
     case "form":
       return <FormArtifact artifact={artifact} onSendMessage={onSendMessage} />;
@@ -736,8 +834,8 @@ export default function MessageBubble({
   msg,
   widgetConfig,
   onSendMessage,
-  onShowToast,
   onRetry,
+  onAddToCart,
 }) {
   // New 10-kind artifact taxonomy
   if (msg.type === "artifact") {
@@ -747,6 +845,7 @@ export default function MessageBubble({
         onSendMessage={onSendMessage}
         aiUrl={msg.aiUrl}
         token={msg.token}
+        onAddToCart={onAddToCart}
       />
     );
   }
