@@ -56,7 +56,8 @@ function DateTimeSlotPicker({
             type="button"
             className={[
               "booking-slot-picker__day-tab",
-              day === actualSelectedDay && "booking-slot-picker__day-tab--active",
+              day === actualSelectedDay &&
+                "booking-slot-picker__day-tab--active",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -113,8 +114,12 @@ function DateTimeSlotPicker({
 // ── BookingSheet ──────────────────────────────────────────────────────────────
 
 export default function BookingSheet({ artifact, accentColor, onSend }) {
-  const { options = [], mode, title, sentinel_prefix: sentinelPrefix = "" } =
-    artifact.payload;
+  const {
+    options = [],
+    mode,
+    title,
+    sentinel_prefix: sentinelPrefix = "",
+  } = artifact.payload;
 
   if (options.length === 0) return null;
 
