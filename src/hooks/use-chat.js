@@ -16,7 +16,6 @@ import {
   startLocalTurn,
   stopActiveTurn,
 } from "@chat-runtime";
-import { normalizeProduct } from "../utils/content-blocks";
 import {
   createApiClient,
   getConversations,
@@ -163,71 +162,6 @@ function createAbortError() {
   return error;
 }
 
-function normalizeWidgetMessages(messages) {
-  return messages.map((message) => {
-    // Legacy product list → card artifact (normalized)
-    if (message.type === "products") {
-      return {
-        id: message.id,
-        sender: message.sender,
-        type: "artifact",
-        artifact: {
-          kind: "card",
-          payload: { items: (message.items || []).map(normalizeProduct) },
-        },
-      };
-    }
-
-    // Legacy single product → card artifact (featured, normalized)
-    if (message.type === "product_card") {
-      const product = message.product
-        ? normalizeProduct(message.product)
-        : null;
-      return {
-        id: message.id,
-        sender: message.sender,
-        type: "artifact",
-        artifact: {
-          kind: "card",
-          payload: { items: product ? [product] : [], mode: "featured" },
-        },
-      };
-    }
-
-    // Legacy feedback_request → feedback artifact
-    if (message.type === "feedback_request") {
-      return {
-        id: message.id,
-        sender: message.sender,
-        type: "artifact",
-        artifact: {
-          kind: "feedback",
-          payload: { trace_id: message.traceId || null },
-        },
-        aiUrl: message.aiUrl,
-        token: message.token,
-      };
-    }
-
-    // New card artifact — normalize items for WooCommerce ProductCard compatibility
-    if (message.type === "artifact" && message.artifact?.kind === "card") {
-      const payload = message.artifact.payload || {};
-      return {
-        ...message,
-        artifact: {
-          ...message.artifact,
-          payload: {
-            ...payload,
-            items: (payload.items || []).map(normalizeProduct),
-          },
-        },
-      };
-    }
-
-    return message;
-  });
-}
-
 export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
   const { socket, token } = deps;
   const [runtimeState, setRuntimeState] = useState(() =>
@@ -280,13 +214,7 @@ export function useChat(storeId, visitorId, sessionId, settings, deps = {}) {
     "https://dev-api.zanderio.ai";
 
   const messages = useMemo(
-    () =>
-      normalizeWidgetMessages(
-        selectWidgetMessages(runtimeState, {
-          aiUrl,
-          token,
-        }),
-      ),
+    () => selectWidgetMessages(runtimeState, { aiUrl, token }),
     [aiUrl, runtimeState, token],
   );
 

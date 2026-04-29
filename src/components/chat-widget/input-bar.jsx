@@ -52,7 +52,7 @@ export default function InputBar({ onSend, disabled, color }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder="Message"
           disabled={disabled}
           style={{
             border: "none",
@@ -76,7 +76,7 @@ export default function InputBar({ onSend, disabled, color }) {
           disabled={disabled || !input.trim()}
           style={{
             opacity: disabled || !input.trim() ? 0.4 : 1,
-            background: color || "var(--widget-accent, #7e3ff2)",
+            background: "#111827",
           }}
         >
           <IoSend size={14} color="var(--widget-accent-contrast, #fff)" />

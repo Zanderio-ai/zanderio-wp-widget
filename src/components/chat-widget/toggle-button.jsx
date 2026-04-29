@@ -22,7 +22,7 @@ export default function ToggleButton({ isOpen, onClick, color, iconUrl, isLoadin
     <button
       className="chat-toggle-btn"
       onClick={onClick}
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: isOpen ? "#9ca3af" : color }}
     >
       {isOpen ? <CloseIcon /> : <ChatIcon iconUrl={iconUrl} />}
     </button>

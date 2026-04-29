@@ -11,8 +11,7 @@
  * When `isLoading` is true a `TypingIndicator` (“Thinking…”) is
  * appended after the last message.
  *
- * @param {{ messages, isLoading, widgetConfig, onAddToCart,
- *           onSendMessage, onShowToast }} props
+ * @param {{ messages, isLoading, widgetConfig, onSendMessage, onShowToast }} props
  *
  * @module components/chat-widget/message-list
  */
@@ -27,7 +26,6 @@ export default function MessageList({
   isLoading,
   thinkingStatus,
   widgetConfig,
-  onAddToCart,
   onSendMessage,
   onShowToast,
 }) {
@@ -77,7 +75,6 @@ export default function MessageList({
             <MessageBubble
               msg={msg}
               widgetConfig={widgetConfig}
-              onAddToCart={onAddToCart}
               onSendMessage={onSendMessage}
               onShowToast={onShowToast}
               onRetry={

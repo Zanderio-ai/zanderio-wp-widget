@@ -39,12 +39,6 @@ export default function ChatWidget({
   remainingMessages,
   startNewChat,
   isMobile,
-  onAddToCart,
-  cartPreview,
-  onCartPreviewQuantityChange,
-  onCloseCartPreview,
-  onConfirmCartPreview,
-  isCartPreviewSubmitting,
   toast,
   onShowToast,
 }) {
@@ -76,12 +70,6 @@ export default function ChatWidget({
           startNewChat={startNewChat}
           onSend={sendMessage}
           onClose={() => setIsOpen(false)}
-          onAddToCart={onAddToCart}
-          cartPreview={cartPreview}
-          onCartPreviewQuantityChange={onCartPreviewQuantityChange}
-          onCloseCartPreview={onCloseCartPreview}
-          onConfirmCartPreview={onConfirmCartPreview}
-          isCartPreviewSubmitting={isCartPreviewSubmitting}
           onShowToast={onShowToast}
           style={windowStyle}
         />

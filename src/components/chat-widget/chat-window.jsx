@@ -17,10 +17,10 @@
  * @module components/chat-widget/chat-window
  */
 
+import { useState } from "react";
 import ChatHeader from "./chat-header";
 import MessageList from "./message-list";
 import InputBar from "./input-bar";
-import CartPreviewSheet from "../cart/cart-preview-sheet";
 import poweredByIcon from "../../assets/powered-by-icon.svg?raw";
 
 function hexToRgb(color) {
@@ -94,18 +94,15 @@ export default function ChatWindow({
   startNewChat,
   onSend,
   onClose,
-  onAddToCart,
-  cartPreview,
-  onCartPreviewQuantityChange,
-  onCloseCartPreview,
-  onConfirmCartPreview,
-  isCartPreviewSubmitting,
   onShowToast,
   style,
 }) {
   const accentColor = widgetConfig.color || "#7E3FF2";
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const windowStyle = {
-    ...style,
+    ...(!isFullscreen && !isExpanded ? style : {}),
     "--widget-accent": accentColor,
     "--widget-accent-contrast": getContrastText(accentColor),
     "--widget-accent-soft": colorWithAlpha(
@@ -126,13 +123,32 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="chat-window" style={windowStyle}>
+    <div
+      className={[
+        "chat-window",
+        isExpanded && "chat-window--expanded",
+        isFullscreen && "chat-window--fullscreen",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={windowStyle}
+    >
       <ChatHeader
         name={widgetConfig.name}
         icon={widgetConfig.icon}
         color={widgetConfig.color}
         onClose={onClose}
         isConfigReady={isConfigReady}
+        isExpanded={isExpanded || isFullscreen}
+        isFullscreen={isFullscreen}
+        onToggleExpand={() => {
+          setIsFullscreen(false);
+          setIsExpanded((v) => !v);
+        }}
+        onToggleFullscreen={() => {
+          setIsExpanded(false);
+          setIsFullscreen((v) => !v);
+        }}
       />
 
       <MessageList
@@ -140,7 +156,6 @@ export default function ChatWindow({
         isLoading={isLoading}
         thinkingStatus={thinkingStatus}
         widgetConfig={widgetConfig}
-        onAddToCart={onAddToCart}
         onSendMessage={onSend}
         onShowToast={onShowToast}
       />
@@ -176,15 +191,6 @@ export default function ChatWindow({
         />
       </div>
 
-      {cartPreview ? (
-        <CartPreviewSheet
-          item={cartPreview}
-          onClose={onCloseCartPreview}
-          onConfirm={onConfirmCartPreview}
-          onQuantityChange={onCartPreviewQuantityChange}
-          isSubmitting={isCartPreviewSubmitting}
-        />
-      ) : null}
     </div>
   );
 }
