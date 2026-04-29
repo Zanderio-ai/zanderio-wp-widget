@@ -69,17 +69,28 @@ export default function CartPreviewSheet({
           ) : (
             <div className="cart-preview-sheet__image-placeholder">
               {/* Bag icon fallback */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9CA3AF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
             </div>
           )}
 
           <div className="cart-preview-sheet__product-info">
             <p className="cart-preview-sheet__product-title">{title}</p>
-            <p className="cart-preview-sheet__product-price">{formatPrice(price)}</p>
+            <p className="cart-preview-sheet__product-price">
+              {formatPrice(price)}
+            </p>
 
             {/* Quantity stepper */}
             <div className="cart-preview-sheet__qty">
@@ -88,14 +99,18 @@ export default function CartPreviewSheet({
                 className="cart-preview-sheet__qty-btn"
                 disabled={quantity <= 1 || isSubmitting}
                 onClick={() => onUpdateQty((q) => q - 1)}
-              >−</button>
+              >
+                −
+              </button>
               <span className="cart-preview-sheet__qty-count">{quantity}</span>
               <button
                 type="button"
                 className="cart-preview-sheet__qty-btn"
                 disabled={isSubmitting}
                 onClick={() => onUpdateQty((q) => q + 1)}
-              >+</button>
+              >
+                +
+              </button>
             </div>
           </div>
 
@@ -104,8 +119,12 @@ export default function CartPreviewSheet({
 
         {/* Subtotal row */}
         <div className="cart-preview-sheet__subtotal-row">
-          <span className="cart-preview-sheet__subtotal-label">Preview subtotal</span>
-          <span className="cart-preview-sheet__subtotal-value">${subtotal}</span>
+          <span className="cart-preview-sheet__subtotal-label">
+            Preview subtotal
+          </span>
+          <span className="cart-preview-sheet__subtotal-value">
+            ${subtotal}
+          </span>
         </div>
 
         {/* Actions */}

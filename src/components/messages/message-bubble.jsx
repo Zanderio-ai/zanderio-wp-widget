@@ -834,6 +834,7 @@ export default function MessageBubble({
   msg,
   widgetConfig,
   onSendMessage,
+  // onShowToast,
   onRetry,
   onAddToCart,
 }) {

@@ -26,11 +26,11 @@ The compiled file is written to `sources/wordpress/assets/widget.js`.
 
 ## Tech stack
 
-| Tool                                   | Purpose                       |
-| -------------------------------------- | ----------------------------- |
-| [Vite](https://vitejs.dev/)            | Build / bundler               |
-| [React](https://react.dev/)            | UI framework                  |
-| [Terser](https://terser.org/)          | JavaScript minifier           |
+| Tool | Purpose |
+|------|---------|
+| [Vite](https://vitejs.dev/) | Build / bundler |
+| [React](https://react.dev/) | UI framework |
+| [Terser](https://terser.org/) | JavaScript minifier |
 | [Socket.IO Client](https://socket.io/) | Real-time WebSocket transport |
 
 ## License

@@ -92,6 +92,12 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 
 == Changelog ==
 
+= 1.3.2 =
+* Added cart preview sheet component for in-widget cart confirmation before adding items.
+* Enhanced artifact component styling with improved product cards, carousels, notices, lists, tables, and wizards.
+* Added cart preview sheet complement styles with quantity controls and product details.
+* Improved artifact product card cart button interactions and disabled states.
+
 = 1.3.1 =
 * Fixed confirmation cards not displaying description text or action buttons — booking confirmations and cart flows now render correctly.
 * Fixed wizard step progress not showing step descriptions.
