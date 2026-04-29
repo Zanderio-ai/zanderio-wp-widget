@@ -21,6 +21,30 @@ import MessageBubble from "../messages/message-bubble";
 import TypingIndicator from "../messages/typing-indicator";
 import ThinkingStatus from "../messages/thinking-status";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatUserContent(text) {
+  if (!text) return text;
+  if (text.startsWith("__booking_event_type_selected__:")) {
+    const name = text.split("|")[1] || "Appointment";
+    return `Selected: ${name}`;
+  }
+  if (text.startsWith("__booking_slot_selected__:")) {
+    const iso = text.replace("__booking_slot_selected__:", "");
+    return `Selected: ${new Date(iso).toLocaleString([], {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  }
+  if (text.startsWith("__booking_answers__")) {
+    return "Provided booking details";
+  }
+  return text;
+}
+
 export default function MessageList({
   messages,
   isLoading,
@@ -63,6 +87,12 @@ export default function MessageList({
           return null;
         }
 
+        // Replace sentinel text with human-readable labels for user messages
+        const displayMsg =
+          msg.sender === "user" && msg.text
+            ? { ...msg, text: formatUserContent(msg.text) }
+            : msg;
+
         return (
           <div
             key={msg.id}
@@ -73,7 +103,7 @@ export default function MessageList({
             }}
           >
             <MessageBubble
-              msg={msg}
+              msg={displayMsg}
               widgetConfig={widgetConfig}
               onSendMessage={onSendMessage}
               onShowToast={onShowToast}

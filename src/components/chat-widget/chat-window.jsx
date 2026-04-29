@@ -17,10 +17,11 @@
  * @module components/chat-widget/chat-window
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ChatHeader from "./chat-header";
 import MessageList from "./message-list";
 import InputBar from "./input-bar";
+import BookingSheet from "./booking-sheet";
 import poweredByIcon from "../../assets/powered-by-icon.svg?raw";
 
 function hexToRgb(color) {
@@ -101,6 +102,24 @@ export default function ChatWindow({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Derive the active overlay artifact — mirrors Playground.jsx:894-910.
+  // It's "active" when it's the last non-streaming agent turn and no user
+  // message has followed it yet.
+  const activeOverlayArtifact = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.sender === "user") return null;
+      if (
+        msg.type === "artifact" &&
+        msg.artifact?.kind === "select" &&
+        msg.artifact?.placement === "overlay"
+      ) {
+        return msg.artifact;
+      }
+    }
+    return null;
+  }, [messages]);
+
   const windowStyle = {
     ...(!isFullscreen && !isExpanded ? style : {}),
     "--widget-accent": accentColor,
@@ -160,6 +179,16 @@ export default function ChatWindow({
         onShowToast={onShowToast}
       />
 
+      {/* Booking overlay sheet — rendered when an unanswered placement=overlay
+          select artifact is the last agent turn. Matches Playground exactly. */}
+      {activeOverlayArtifact && !isLoading && (
+        <BookingSheet
+          artifact={activeOverlayArtifact}
+          accentColor={accentColor}
+          onSend={onSend}
+        />
+      )}
+
       <InputBar
         onSend={onSend}
         disabled={isLoading || isTyping || !!conversationEnded}
@@ -190,7 +219,6 @@ export default function ChatWindow({
           dangerouslySetInnerHTML={{ __html: poweredByIcon }}
         />
       </div>
-
     </div>
   );
 }

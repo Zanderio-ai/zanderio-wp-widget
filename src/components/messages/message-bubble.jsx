@@ -67,7 +67,9 @@ function ProductCardItem({ item, compact = false }) {
   const hasDiscount = comparePrice != null;
 
   return (
-    <div className={`artifact-product-card${compact ? " artifact-product-card--compact" : ""}`}>
+    <div
+      className={`artifact-product-card${compact ? " artifact-product-card--compact" : ""}`}
+    >
       {item.image && (
         <div className="artifact-product-card__image-wrap">
           <img
@@ -95,16 +97,24 @@ function ProductCardItem({ item, compact = false }) {
         <p className="artifact-product-card__title">{item.title}</p>
         {price && (
           <p className="artifact-product-card__price">
-            <span className={hasDiscount ? "artifact-product-card__price--sale" : ""}>
+            <span
+              className={
+                hasDiscount ? "artifact-product-card__price--sale" : ""
+              }
+            >
               {price}
             </span>
             {comparePrice && (
-              <span className="artifact-product-card__price--compare">{comparePrice}</span>
+              <span className="artifact-product-card__price--compare">
+                {comparePrice}
+              </span>
             )}
           </p>
         )}
         {item.variant_summary && (
-          <p className="artifact-product-card__variant">{item.variant_summary}</p>
+          <p className="artifact-product-card__variant">
+            {item.variant_summary}
+          </p>
         )}
         {item.url && (
           <button
@@ -185,7 +195,9 @@ function SelectArtifact({ artifact, onSendMessage }) {
   const handlePick = (option) => {
     if (chosen) return; // already picked
     setChosen(option.value);
-    const sentinel = sentinel_prefix ? `${sentinel_prefix}${option.value}` : option.label;
+    const sentinel = sentinel_prefix
+      ? `${sentinel_prefix}${option.value}`
+      : option.label;
     onSendMessage(sentinel);
   };
 
@@ -234,7 +246,9 @@ function SelectArtifact({ artifact, onSendMessage }) {
           disabled={chosen !== null || opt.available === false}
           onClick={() => handlePick(opt)}
         >
-          {opt.icon && <span className="artifact-select__chip-icon">{opt.icon}</span>}
+          {opt.icon && (
+            <span className="artifact-select__chip-icon">{opt.icon}</span>
+          )}
           <span>{opt.label}</span>
           {opt.subtitle && (
             <span className="artifact-select__chip-sub">{opt.subtitle}</span>
@@ -261,7 +275,9 @@ function ConfirmArtifact({ artifact, onSendMessage }) {
   return (
     <div className="artifact-confirm">
       {title && <p className="artifact-confirm__title">{title}</p>}
-      {description && <p className="artifact-confirm__summary">{description}</p>}
+      {description && (
+        <p className="artifact-confirm__summary">{description}</p>
+      )}
       {summary_fields && summary_fields.length > 0 && (
         <dl className="artifact-confirm__fields">
           {summary_fields.map((f) => (
@@ -381,9 +397,13 @@ function ListArtifact({ artifact }) {
     <Tag className={className}>
       {items.map((item, i) => (
         <li key={i} className="artifact-list__item">
-          {item.icon && <span className="artifact-list__icon">{item.icon}</span>}
+          {item.icon && (
+            <span className="artifact-list__icon">{item.icon}</span>
+          )}
           <span className="artifact-list__label">{item.label}</span>
-          {item.value && <span className="artifact-list__value">{item.value}</span>}
+          {item.value && (
+            <span className="artifact-list__value">{item.value}</span>
+          )}
         </li>
       ))}
     </Tag>
@@ -489,7 +509,9 @@ function FormArtifact({ artifact, onSendMessage }) {
         <div key={field.id} className="artifact-form__field">
           <label className="artifact-form__label" htmlFor={`af-${field.id}`}>
             {field.label}
-            {field.required && <span className="artifact-form__required"> *</span>}
+            {field.required && (
+              <span className="artifact-form__required"> *</span>
+            )}
           </label>
           {field.type === "textarea" ? (
             <textarea
@@ -596,16 +618,47 @@ function ArtifactMessage({ artifact, onSendMessage, aiUrl, token }) {
       return <CardArtifact artifact={artifact} />;
 
     case "select":
-      return <SelectArtifact artifact={artifact} onSendMessage={onSendMessage} />;
+      // Overlay selects are rendered as a bottom sheet by ChatWindow.
+      // Suppress inline rendering entirely while they are active;
+      // for historical items (a user response already followed) render
+      // a compact "offered N slots" label — same as Playground:1367-1409.
+      if (artifact.placement === "overlay") {
+        const { mode, options = [] } = artifact.payload;
+        if (mode === "datetime") {
+          return (
+            <p className="booking-history-label">
+              Offered {options.length} time slot
+              {options.length !== 1 ? "s" : ""}
+            </p>
+          );
+        }
+        return (
+          <ul className="booking-history-options">
+            {options.map((opt) => (
+              <li key={opt.value} className="booking-history-options__item">
+                {opt.label}
+                {opt.subtitle ? ` · ${opt.subtitle}` : ""}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+      return (
+        <SelectArtifact artifact={artifact} onSendMessage={onSendMessage} />
+      );
 
     case "confirm":
-      return <ConfirmArtifact artifact={artifact} onSendMessage={onSendMessage} />;
+      return (
+        <ConfirmArtifact artifact={artifact} onSendMessage={onSendMessage} />
+      );
 
     case "notice":
       return <NoticeArtifact artifact={artifact} />;
 
     case "feedback":
-      return <FeedbackArtifact artifact={artifact} aiUrl={aiUrl} token={token} />;
+      return (
+        <FeedbackArtifact artifact={artifact} aiUrl={aiUrl} token={token} />
+      );
 
     case "list":
       return <ListArtifact artifact={artifact} />;
@@ -719,7 +772,5 @@ export default function MessageBubble({
   }
 
   // Default: text / streaming / error message
-  return (
-    <TextMessage msg={msg} color={widgetConfig.color} onRetry={onRetry} />
-  );
+  return <TextMessage msg={msg} color={widgetConfig.color} onRetry={onRetry} />;
 }

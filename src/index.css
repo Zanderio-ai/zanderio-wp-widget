@@ -680,6 +680,277 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Booking Sheet — overlay bottom sheet (matches Playground pgSheetUp)
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes bookingSheetUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Scrim — minimal, no blur, rgba(0,0,0,0.08) matches Playground:1998-2005 */
+.booking-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Panel */
+.booking-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 31;
+  background: #ffffff;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  border-top: 1px solid #f0f0f0;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  max-height: 85%;
+  animation: bookingSheetUp 0.2s ease-out;
+}
+
+/* Handle bar — matches Playground:2027-2038 */
+.booking-sheet__handle-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  flex-shrink: 0;
+}
+
+.booking-sheet__handle {
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+/* Title — CHOOSE AN APPOINTMENT TYPE label, matches Playground:2042-2058 */
+.booking-sheet__title {
+  margin: 0;
+  padding: 0 16px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Scrollable content area */
+.booking-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.booking-sheet__body--datetime {
+  padding: 0 16px 8px;
+}
+
+.booking-sheet__body--list {
+  padding: 0;
+}
+
+/* Bottom safe area — matches Playground:2126-2127 */
+.booking-sheet__safe-area {
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* List rows — matches Playground ListItemButton:2081-2117 */
+.booking-sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.booking-sheet__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.booking-sheet__row:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.booking-sheet__row:active:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.booking-sheet__row:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.booking-sheet__row-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Primary label — Playground primaryTypographyProps: fontSize 14, weight 500 */
+.booking-sheet__row-primary {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  line-height: 1.4;
+}
+
+/* Secondary label — Playground secondaryTypographyProps: fontSize 12, #9CA3AF */
+.booking-sheet__row-secondary {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.3;
+}
+
+/* Chevron — matches Playground:2111-2116 */
+.booking-sheet__row-arrow {
+  color: #d1d5db;
+  font-size: 18px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+/* Row divider — matches Playground:2118-2120 */
+.booking-sheet__divider {
+  margin: 0 16px;
+  height: 1px;
+  background: #f3f4f6;
+}
+
+/* ── DateTimeSlotPicker — day tabs + time grid ─────────────────── */
+/* Direct CSS port of Playground:432-515 MUI sx styles             */
+
+.booking-slot-picker {
+  padding-top: 8px;
+}
+
+/* Day tab strip — horizontal scroll, matches Playground:434-443 */
+.booking-slot-picker__days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb transparent;
+}
+
+.booking-slot-picker__days::-webkit-scrollbar {
+  height: 4px;
+}
+
+.booking-slot-picker__days::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+
+/* Day tab pill — matches Playground:448-474 */
+.booking-slot-picker__day-tab {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  min-width: 100px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: transparent;
+  color: #4b5563;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.booking-slot-picker__day-tab:hover:not(.booking-slot-picker__day-tab--active) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Active state is applied via inline style (accentColor) — see component */
+
+/* Time grid — matches Playground:477-482 */
+.booking-slot-picker__times {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+/* Time pill — matches Playground:490-511 */
+.booking-slot-picker__time {
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid; /* color set via inline style (accentColor) */
+  background: transparent;
+  transition:
+    background 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.booking-slot-picker__time:hover:not(:disabled) {
+  background: var(--widget-accent-soft);
+}
+
+.booking-slot-picker__time:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Historical booking artifact labels ──────────────────────── */
+/* Shown in the message thread after the user has already responded */
+
+.booking-history-label {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  opacity: 0.6;
+  padding: 4px 8px;
+}
+
+.booking-history-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0.5;
+  max-width: 85%;
+}
+
+.booking-history-options__item {
+  font-size: 12px;
+  color: #6b7280;
+  padding: 4px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: inline-block;
+  width: fit-content;
+}
+
 /* ── Action Buttons ─────────────────────────────────────────── */
 
 .action-button {
