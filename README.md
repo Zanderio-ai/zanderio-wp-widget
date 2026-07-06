@@ -2,7 +2,7 @@
 
 This repository contains the **human-readable source code** for the
 [Zanderio AI](https://wordpress.org/plugins/zanderio-ai/) WordPress plugin's
-chat widget (`assets/widget.js`).
+chat widget (`assets/loader.js`).
 
 It is published to satisfy the
 [WordPress Plugin Directory guideline §4](https://developer.wordpress.org/plugins/wordpress-org/detailed-plugin-guidelines/#4-code-must-be-mostly-human-readable)
@@ -19,10 +19,10 @@ cd zanderio-wp-widget
 npm install
 
 # 3. Build the WordPress widget bundle
-npm run build:wordpress:prod
+WIDGET_ENV=prod npm run build:wordpress
 ```
 
-The compiled file is written to `sources/wordpress/assets/widget.js`.
+The compiled file is written to `sources/wordpress/assets/loader.js`.
 
 ## Tech stack
 
@@ -31,7 +31,7 @@ The compiled file is written to `sources/wordpress/assets/widget.js`.
 | [Vite](https://vitejs.dev/) | Build / bundler |
 | [React](https://react.dev/) | UI framework |
 | [Terser](https://terser.org/) | JavaScript minifier |
-| [Socket.IO Client](https://socket.io/) | Real-time WebSocket transport |
+| [Vercel AI SDK](https://sdk.vercel.ai/) | Streaming chat transport (SSE) |
 
 ## License
 

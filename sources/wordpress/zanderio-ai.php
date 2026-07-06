@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.3.2
+ * Version:      1.4.0
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.3.2' );
+define( 'ZANDERIO_VERSION',      '1.4.0' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -62,6 +62,24 @@ function zanderio_store_remote_identity( $body, $clear_missing = false ) {
         $store_id = sanitize_text_field( $body['data']['store_id'] );
     } elseif ( ! empty( $body['data']['storeId'] ) ) {
         $store_id = sanitize_text_field( $body['data']['storeId'] );
+    }
+
+    /*
+     * Widget key (StoreWidget id, `wdg_...`) is the public bootstrap identity
+     * the embed sends as `data-id`. It supersedes store_id for widget init under
+     * the REST-bootstrap contract; store_id is retained only for legacy/display.
+     */
+    $widget_key = '';
+    if ( ! empty( $body['data']['widget_key'] ) ) {
+        $widget_key = sanitize_text_field( $body['data']['widget_key'] );
+    } elseif ( ! empty( $body['data']['widgetKey'] ) ) {
+        $widget_key = sanitize_text_field( $body['data']['widgetKey'] );
+    }
+
+    if ( $widget_key ) {
+        update_option( 'zanderio_widget_key', $widget_key );
+    } elseif ( $clear_missing ) {
+        delete_option( 'zanderio_widget_key' );
     }
 
     if ( $store_id ) {
@@ -605,9 +623,16 @@ function zanderio_enqueue_widget() {
         return;
     }
 
-    $domain        = get_option( 'zanderio_domain', '' );
-    $store_id      = get_option( 'zanderio_store_id', '' );
-    $primary_color = get_option( 'zanderio_widget_color', '#7E3FF2' );
+    $widget_key = get_option( 'zanderio_widget_key', '' );
+
+    /*
+     * The REST-bootstrap widget needs the public widget key (`wdg_...`) to
+     * resolve the store. Without it there is nothing to bootstrap — bail rather
+     * than load a bundle that will only log a missing-key error.
+     */
+    if ( ! $widget_key ) {
+        return;
+    }
 
     wp_register_script(
         'zanderio-widget',
@@ -622,14 +647,15 @@ function zanderio_enqueue_widget() {
 
     wp_enqueue_script( 'zanderio-widget' );
 
+    /*
+     * The embed reads `window.ZanderioWidgetConfig.key` (server-injected twin of
+     * the custom channel's `data-id`). `platform` is hinted so storefront cart
+     * adds resolve to the WooCommerce adapter without runtime sniffing.
+     */
     $config = array(
-        'shopDomain'   => $domain ?: '',
-        'primaryColor' => $primary_color,
+        'key'      => $widget_key,
+        'platform' => 'woocommerce',
     );
-
-    if ( $store_id ) {
-        $config['storeId'] = $store_id;
-    }
 
     $config = wp_json_encode( $config );
 

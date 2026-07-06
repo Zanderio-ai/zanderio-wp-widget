@@ -1,0 +1,102 @@
+/**
+ * @module App
+ * @description Composition layer — wires bootstrap + chat into the chat shell.
+ *
+ * Zero business logic: bootstrap yields token/config/conversation; the chat hook
+ * yields the live message stream; this component injects the brand-aware global
+ * stylesheet and renders the launcher, proactive nudge, and chat window.
+ */
+
+import { useCallback, useEffect, useState } from "react";
+import { Global, css } from "@emotion/react";
+import { useBootstrap } from "@/core/use-bootstrap";
+import { useWidgetChat } from "@/core/use-widget-chat";
+import { newConversationId } from "@/core/bootstrap";
+import { useResponsive } from "@/hooks/use-responsive";
+import { globalStyles } from "@/ui/styles";
+import { Launcher } from "@/ui/Launcher";
+import { ProactiveBubble } from "@/ui/ProactiveBubble";
+import { ChatWindow } from "@/ui/ChatWindow";
+import type { WidgetSettings } from "@/config/types";
+
+export default function App({ settings }: { settings: WidgetSettings }) {
+  const { status, result } = useBootstrap(settings);
+  const { isMobile } = useResponsive();
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Conversation id starts from bootstrap; "start new chat" replaces it,
+  // which re-keys the chat hook and loads a fresh (empty) thread.
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  useEffect(() => {
+    if (result?.conversationId) setConversationId(result.conversationId);
+  }, [result?.conversationId]);
+
+  const chat = useWidgetChat({
+    conversationId,
+    token: result?.aiServiceToken ?? null,
+  });
+
+  // Backend signals a closed conversation → visitor can start a fresh one.
+  // newConversationId persists the new UUID so the next page load resumes it.
+  const startNewChat = useCallback(() => {
+    chat.stop();
+    setConversationId(newConversationId(settings.key));
+  }, [chat, settings.key]);
+
+  const config = result?.config;
+  const brandColor = config?.color ?? "#7E3FF2";
+  const position = isMobile ? config?.mobilePosition : config?.desktopPosition;
+
+  // Merchant can opt the chat window to open itself once, unprompted.
+  // Mirrors the dashboard widget-appearance preview: with the attention
+  // animation on, wait for it to play before popping open; with it off,
+  // open immediately.
+  useEffect(() => {
+    if (!config?.autoPopup || isOpen) return;
+    const delayMs = config.animation.enabled ? Math.max(0, config.animation.delaySeconds) * 1000 : 0;
+    const timer = setTimeout(() => setIsOpen(true), delayMs);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.autoPopup, config?.animation.enabled, config?.animation.delaySeconds]);
+
+  // On hard bootstrap failure (inactive/over-quota/not-found) render nothing —
+  // the widget simply never appears on the host page.
+  if (status === "error") return null;
+
+  return (
+    <>
+      <Global styles={css(globalStyles(brandColor))} />
+
+      {config && (
+        <ChatWindow
+          isOpen={isOpen}
+          isMobile={isMobile}
+          config={config}
+          brandColor={brandColor}
+          chat={chat}
+          onClose={() => setIsOpen(false)}
+          onStartNewChat={startNewChat}
+        />
+      )}
+
+      {config && (
+        <ProactiveBubble
+          config={config}
+          brandColor={brandColor}
+          isOpen={isOpen}
+          position={position}
+          onOpen={() => setIsOpen(true)}
+        />
+      )}
+
+      <Launcher
+        isOpen={isOpen}
+        brandColor={brandColor}
+        logoUrl={config?.logoUrl}
+        animation={config?.animation}
+        position={position}
+        onToggle={() => setIsOpen((v) => !v)}
+      />
+    </>
+  );
+}

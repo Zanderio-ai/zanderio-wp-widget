@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.3.2
+Stable tag: 1.4.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -91,6 +91,19 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.0 =
+* Fixed a bug where the chat widget could silently fail to send a shopper's first message right after the page loaded, requiring a manual refresh to recover.
+* Redesigned the chat header and message bubbles to match your store's brand color exactly — solid brand color on the header, launcher, and your own sent messages, with a cleaner neutral background for AI replies.
+* Added a modern send button that stays muted until you start typing, then fills with your brand color — the same pattern used by today's leading messaging apps.
+* Reworked the widget's expanded view into a larger centered window instead of a full-screen takeover, so shoppers keep more of the page visible behind it.
+* Added an idle wiggle animation and an optional auto-open delay for the chat launcher button, plus support for showing your own store logo on the launcher instead of the default icon.
+* Polished launcher button padding and logo sizing for a cleaner look across screen sizes.
+
+= 1.3.3 =
+* Migrated the embed to the REST-bootstrap widget: the loader now boots from the public widget key (`window.ZanderioWidgetConfig.key`) instead of the legacy `storeId` config.
+* The plugin now stores the widget key returned by the connection handshake and only renders the widget once a key is present.
+* Hints the WooCommerce platform so in-widget cart adds resolve to the storefront adapter.
 
 = 1.3.2 =
 * Added cart preview sheet component for in-widget cart confirmation before adding items.

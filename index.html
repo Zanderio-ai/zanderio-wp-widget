@@ -2,12 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zanderio-chat-widget</title>
+    <title>Zanderio Widget — Dev Harness</title>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <!--
+      Local dev harness. In production the widget is loaded as a single
+      <script src=".../loader.js" data-id="wdg_..."> tag and
+      self-mounts. Here we simulate that with the dev key below.
+    -->
+    <script>
+      window.ZanderioWidgetConfig = { key: "pk_dev_local" };
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
