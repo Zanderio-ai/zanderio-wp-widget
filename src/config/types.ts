@@ -49,8 +49,6 @@ export interface WidgetConfig {
     delaySeconds: number;
   };
   autoPopup: boolean;
-  /** Merchant kill-switch for the mic/voice-input button. */
-  voiceAssistantEnabled: boolean;
 }
 
 /** Successful response from `POST /api/widget/bootstrap`. */

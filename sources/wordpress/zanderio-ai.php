@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.4.1
+ * Version:      1.4.2
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.4.1' );
+define( 'ZANDERIO_VERSION',      '1.4.2' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -134,7 +134,7 @@ function zanderio_sync_store_identity() {
 /* ══════════════════════════════════════════════════════════════════════════
  * Activation hook
  *
- * 1. POST /stores/connection/wordpress/install  →  get authorize_url + secret
+ * 1. POST /v1/stores/connection/wordpress/install  →  get authorize_url + secret
  * 2. Store the plugin_secret in wp_options
  * 3. Set a transient flag so we redirect on next admin page load
  * ══════════════════════════════════════════════════════════════════════════ */
@@ -153,7 +153,7 @@ function zanderio_activate() {
     );
 
     $response = wp_remote_post(
-        ZANDERIO_API_URL . '/stores/connection/wordpress/install',
+        ZANDERIO_API_URL . '/v1/stores/connection/wordpress/install',
         array(
             'body'      => wp_json_encode( $payload ),
             'headers'   => array( 'Content-Type' => 'application/json' ),
@@ -355,7 +355,7 @@ function zanderio_do_handshake_and_redirect() {
     );
 
     $response = wp_remote_post(
-        ZANDERIO_API_URL . '/stores/connection/wordpress/install',
+        ZANDERIO_API_URL . '/v1/stores/connection/wordpress/install',
         array(
             'body'      => wp_json_encode( $payload ),
             'headers'   => array( 'Content-Type' => 'application/json' ),

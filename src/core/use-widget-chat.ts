@@ -150,6 +150,5 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     respondToInterrupt,
     stop,
     regenerate,
-    token,
   };
 }

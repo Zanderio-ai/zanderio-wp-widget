@@ -91,8 +91,6 @@ export default function App({ settings }: { settings: WidgetSettings }) {
 
       <Launcher
         isOpen={isOpen}
-        isLoading={status === "loading"}
-        isMobile={isMobile}
         brandColor={brandColor}
         logoUrl={config?.logoUrl}
         animation={config?.animation}

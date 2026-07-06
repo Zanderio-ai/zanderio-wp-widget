@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.2 =
+* Fixed the plugin's connection handshake calling a URL missing a required path segment, which made every new install fail immediately with "Route Not Found" and silently prevented the chat widget from ever loading.
 
 = 1.4.1 =
 * Corrected External Services disclosure to accurately describe the REST-based bootstrap and chat streaming endpoints (previously referenced an unused WebSocket connection).

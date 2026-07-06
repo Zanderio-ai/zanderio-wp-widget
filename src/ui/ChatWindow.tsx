@@ -8,16 +8,12 @@
  * the shadow root.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { css } from "@emotion/react";
 import { tokens } from "@/config/tokens";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
-import { VoiceInputButton } from "./VoiceInputButton";
-import { VoicePanel } from "./VoicePanel";
-import { VoiceErrorBanner } from "./VoiceErrorBanner";
-import { useVoiceInput } from "@/core/use-voice-input";
 import { InterruptDialog } from "./InterruptDialog";
 import { CartSheetProvider } from "@/artifacts/commerce/CartSheet";
 import { ChatActionsProvider } from "@/artifacts/chat-actions";
@@ -123,30 +119,6 @@ export function ChatWindow({
 
   const showBackdrop = isOpen && !isMobile && size === "modal";
 
-  // Lifted so voice input (transcript) and typing share the same textarea value.
-  const [draft, setDraft] = useState("");
-  // Mirror of `draft` for the voice auto-send path: a recording's onstop
-  // callback is bound when recording starts, so reading `draft` from its
-  // closure would miss anything typed *during* the recording. The ref always
-  // holds the latest value.
-  const draftRef = useRef(draft);
-  useEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
-
-  // Voice input state drives the composer: recording/transcribing replace the
-  // input bar with a VoicePanel; errors surface as a banner above it. On a
-  // finished transcript we auto-send (combined with anything already typed).
-  const voice = useVoiceInput({
-    token: chat.token,
-    onTranscript: (text) => {
-      const typed = draftRef.current.trim();
-      const combined = typed ? `${typed} ${text}` : text;
-      setDraft("");
-      chat.send(combined);
-    },
-  });
-
   // A cancelled interrupt is hidden until a new one arrives (keyed by payload).
   const [dismissedInterrupt, setDismissedInterrupt] = useState<string | null>(null);
   const interruptKey = chat.interrupt ? JSON.stringify(chat.interrupt) : null;
@@ -189,45 +161,15 @@ export function ChatWindow({
             errorState={errorState}
             onStartNewChat={onStartNewChat}
           />
-          {!chat.isClosed &&
-            (voice.state === "recording" || voice.state === "transcribing" ? (
-              <VoicePanel
-                mode={voice.state}
-                brandColor={brandColor}
-                isMobile={isMobile}
-                onStop={voice.stop}
-                onCancel={voice.cancel}
-              />
-            ) : (
-              <>
-                {voice.state === "error" && voice.errorMessage && (
-                  <VoiceErrorBanner message={voice.errorMessage} />
-                )}
-                <InputBar
-                  brandColor={brandColor}
-                  disabled={inputDisabled}
-                  isMobile={isMobile}
-                  isStreaming={chat.isStreaming}
-                  onSend={chat.send}
-                  onStop={chat.stop}
-                  value={draft}
-                  onValueChange={(v) => {
-                    setDraft(v);
-                    // Clear a prior voice error the moment the user types.
-                    if (voice.state === "error") voice.reset();
-                  }}
-                  voiceControl={
-                    config.voiceAssistantEnabled && voice.supported ? (
-                      <VoiceInputButton
-                        brandColor={brandColor}
-                        disabled={inputDisabled || chat.isStreaming}
-                        onStart={voice.start}
-                      />
-                    ) : undefined
-                  }
-                />
-              </>
-            ))}
+          {!chat.isClosed && (
+            <InputBar
+              brandColor={brandColor}
+              disabled={inputDisabled}
+              isStreaming={chat.isStreaming}
+              onSend={chat.send}
+              onStop={chat.stop}
+            />
+          )}
 
           {showInterrupt && (
               <InterruptDialog
