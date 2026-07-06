@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -46,12 +46,15 @@ Features:
 
 == External Services ==
 
-This plugin connects your WordPress site to the **Zanderio** external service
-(`zanderio.ai`).  Two endpoints are used:
+This plugin connects your WordPress site to two **Zanderio** (`zanderio.ai`)
+services over plain HTTPS REST calls.  There is no WebSocket connection — all
+communication, including live streaming chat responses, uses standard HTTPS
+requests.
 
-= api.zanderio.ai (REST API) =
+= api.zanderio.ai (REST API — store connection) =
 
-Used server-side by the plugin (PHP) and client-side by the chat widget (JS).
+Used server-side by the plugin (PHP) and client-side by the chat widget (JS)
+to bootstrap the widget.
 
 **Server-side (PHP):**
 
@@ -63,18 +66,26 @@ Used server-side by the plugin (PHP) and client-side by the chat widget (JS).
 * **On deactivation / uninstall** — notifies Zanderio to disconnect the store
   and delete associated data.
 
-**Client-side (loader.js):**
+**Client-side (loader.js) — widget bootstrap:**
 
-* **Chat conversations** — visitor messages typed into the chat widget are sent
-  over HTTPS to the REST API for AI processing.  No personally identifiable
-  visitor data is stored by the plugin itself.
+* **`POST /v1/widget/bootstrap`** — on page load, the widget exchanges the
+  plugin's public widget key for a short-lived session token and your
+  appearance settings (brand color, logo, launcher animation). No personally
+  identifiable visitor data is required for this step; an anonymous visitor
+  id is generated locally and sent along so return visits resume the same
+  conversation.
 
-= ws.zanderio.ai (WebSocket) =
+= agent.zanderio.ai (AI Service — chat) =
 
-Used client-side by the chat widget (JS) to provide real-time, streaming
-responses from the AI agent.  The WebSocket connection is opened when a visitor
-starts a chat conversation and transmits the same conversation data as the
-REST API above.
+Used client-side by the chat widget (JS) only, authenticated with the session
+token issued by the bootstrap call above.
+
+* **`POST /v1/threads/{id}/chat`** — sends the visitor's typed messages and
+  streams the AI agent's reply back over the same HTTPS connection
+  (Server-Sent Events) as it's generated.
+* **`GET /v1/threads/{id}/state`** — restores the visitor's prior messages
+  when the widget reopens after a page reload, so conversation history isn't
+  lost.
 
 **Links:**
 
@@ -100,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.1 =
+* Corrected External Services disclosure to accurately describe the REST-based bootstrap and chat streaming endpoints (previously referenced an unused WebSocket connection).
 
 = 1.4.0 =
 * Fixed a bug where the chat widget could silently fail to send a shopper's first message right after the page loaded, requiring a manual refresh to recover.

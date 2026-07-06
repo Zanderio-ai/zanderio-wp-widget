@@ -10,6 +10,8 @@ import type { WidgetConfig } from "@/config/types";
 
 interface LauncherProps {
   isOpen: boolean;
+  isLoading?: boolean;
+  isMobile?: boolean;
   brandColor: string;
   logoUrl?: string | null;
   animation?: WidgetConfig["animation"];
@@ -36,8 +38,9 @@ const buzzKeyframes = keyframes`
   74%, 78%, 82%, 86%, 90% { transform: translate(2px, 0); }
 `;
 
-const spinKeyframes = keyframes`
-  to { transform: rotate(360deg); }
+const shimmerKeyframes = keyframes`
+  0% { background-position: -150% 0; }
+  100% { background-position: 150% 0; }
 `;
 
 const base = css`
@@ -69,7 +72,21 @@ function placement(position: LauncherProps["position"]) {
   return css`right: 20px;`;
 }
 
-export function Launcher({ isOpen, brandColor, logoUrl, animation, position, onToggle }: LauncherProps) {
+const skeletonCss = css`
+  background: #e2e2e2
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+  background-size: 80% 100%;
+  background-repeat: no-repeat;
+  animation: ${shimmerKeyframes} 1.4s ease-in-out infinite;
+`;
+
+export function Launcher({ isOpen, isLoading, isMobile, brandColor, logoUrl, animation, position, onToggle }: LauncherProps) {
+  // On mobile the launcher sits right above the chat window's send button,
+  // and the chat header already has its own close (X) button — so once the
+  // widget is open there's no need for this button and it would only overlap
+  // the send button. Desktop keeps it since there's no overlap risk there.
+  if (isMobile && isOpen) return null;
+
   // Animation only plays while the launcher is idle (closed) — opening the
   // chat window stops it, same as the dashboard preview.
   const attention =
@@ -79,67 +96,66 @@ export function Launcher({ isOpen, brandColor, logoUrl, animation, position, onT
         `
       : undefined;
 
+  const [logoStatus, setLogoStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  // Until config arrives, and then until its logo image has actually finished
+  // loading, show a neutral gray skeleton — never flash the brand color/chat
+  // icon while a real logo is still on the way in. If there's no logo to show
+  // at all (missing or failed to load), the skeleton stays put permanently
+  // rather than falling back to a chat icon.
+  const showSkeleton = !isOpen && (isLoading || !logoUrl || logoStatus !== "loaded");
+
   return (
     <button
       type="button"
       aria-label={isOpen ? "Close chat" : "Open chat"}
       onClick={onToggle}
-      css={[base, placement(position), css`background: ${brandColor};`, attention]}
+      css={[
+        base,
+        placement(position),
+        showSkeleton ? skeletonCss : css`background: ${brandColor};`,
+        !showSkeleton && attention,
+      ]}
     >
-      {isOpen ? <CloseIcon /> : logoUrl ? <LauncherLogo src={logoUrl} /> : <ChatIcon />}
+      {isOpen ? (
+        <CloseIcon />
+      ) : logoUrl ? (
+        <LauncherLogo
+          src={logoUrl}
+          hidden={showSkeleton}
+          onLoad={() => setLogoStatus("loaded")}
+          onError={() => setLogoStatus("error")}
+        />
+      ) : null}
     </button>
   );
 }
 
-function LauncherLogo({ src }: { src: string }) {
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-
-  if (status === "error") return <ChatIcon />;
-
+function LauncherLogo({
+  src,
+  hidden,
+  onLoad,
+  onError,
+}: {
+  src: string;
+  hidden: boolean;
+  onLoad: () => void;
+  onError: () => void;
+}) {
   return (
-    <>
-      {status === "loading" && <Spinner />}
-      <img
-        src={src}
-        alt=""
-        aria-hidden="true"
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("error")}
-        css={css`
-          width: 140%;
-          height: 140%;
-          object-fit: cover;
-          display: ${status === "loaded" ? "block" : "none"};
-        `}
-      />
-    </>
-  );
-}
-
-function Spinner() {
-  return (
-    <span
+    <img
+      src={src}
+      alt=""
       aria-hidden="true"
+      onLoad={onLoad}
+      onError={onError}
       css={css`
-        width: 20px;
-        height: 20px;
-        border-radius: ${tokens.radius.pill};
-        border: 2px solid rgba(255, 255, 255, 0.35);
-        border-top-color: #fff;
-        animation: ${spinKeyframes} 0.7s linear infinite;
+        width: 110%;
+        height: 110%;
+        object-fit: cover;
+        display: ${hidden ? "none" : "block"};
       `}
     />
-  );
-}
-
-function ChatIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 3C6.5 3 2 6.8 2 11.5c0 2.4 1.2 4.6 3.1 6.1L4 21l4-1.4c1.2.4 2.6.6 4 .6 5.5 0 10-3.8 10-8.7S17.5 3 12 3Z"
-        fill="currentColor"
-      />
-    </svg>
   );
 }
 
