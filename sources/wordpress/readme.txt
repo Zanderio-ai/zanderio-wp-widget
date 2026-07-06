@@ -30,10 +30,19 @@ Features:
 
 == Installation ==
 
-1. Upload `zanderio-ai/` to `/wp-content/plugins/`.
-2. Activate the plugin via **Plugins** in the WordPress admin.
-3. You will be redirected to authorize the connection.
-4. Once connected, the widget appears automatically on the storefront.
+= Downloaded ZIP File Installation =
+
+1. Go to the Zanderio AI plugin page on WordPress.org and click **Download**.
+2. The plugin ZIP file will be downloaded to your device, for example:
+   `zanderio-ai.1.4.0.zip`
+3. Log in to your **WordPress Admin Dashboard**.
+4. From the left menu, go to:
+   **Plugins → Add New → Upload Plugin**
+5. Click **Choose File**, select the downloaded ZIP file, and then click **Install Now**.
+6. Once the plugin is installed, click **Activate Plugin**.
+7. After activation, you will be redirected to `app.zanderio.ai` to authorize and connect your website with Zanderio.
+8. Complete the authorization process to finish the setup.
+9. Once connected, Zanderio AI will be ready to use on your WordPress website.
 
 == External Services ==
 
