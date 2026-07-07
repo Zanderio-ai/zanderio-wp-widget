@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.4.2
+ * Version:      1.4.3
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.4.2' );
+define( 'ZANDERIO_VERSION',      '1.4.3' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -55,20 +55,15 @@ if ( ! defined( 'ZANDERIO_API_URL' ) ) {
     define( 'ZANDERIO_API_URL', 'https://api.zanderio.ai' );
 }
 
+/*
+ * Persist the widget key (StoreWidget id, `wdg_...`) from a backend response.
+ *
+ * The widget key is the sole identity the embed needs: it is injected as
+ * `window.ZanderioWidgetConfig.key` and the widget resolves the store from it
+ * via the bootstrap call. (The backend still returns a store_id for legacy
+ * reasons; the plugin no longer stores or uses it.)
+ */
 function zanderio_store_remote_identity( $body, $clear_missing = false ) {
-    $store_id = '';
-
-    if ( ! empty( $body['data']['store_id'] ) ) {
-        $store_id = sanitize_text_field( $body['data']['store_id'] );
-    } elseif ( ! empty( $body['data']['storeId'] ) ) {
-        $store_id = sanitize_text_field( $body['data']['storeId'] );
-    }
-
-    /*
-     * Widget key (StoreWidget id, `wdg_...`) is the public bootstrap identity
-     * the embed sends as `data-id`. It supersedes store_id for widget init under
-     * the REST-bootstrap contract; store_id is retained only for legacy/display.
-     */
     $widget_key = '';
     if ( ! empty( $body['data']['widget_key'] ) ) {
         $widget_key = sanitize_text_field( $body['data']['widget_key'] );
@@ -82,16 +77,7 @@ function zanderio_store_remote_identity( $body, $clear_missing = false ) {
         delete_option( 'zanderio_widget_key' );
     }
 
-    if ( $store_id ) {
-        update_option( 'zanderio_store_id', $store_id );
-        return $store_id;
-    }
-
-    if ( $clear_missing ) {
-        delete_option( 'zanderio_store_id' );
-    }
-
-    return '';
+    return $widget_key;
 }
 
 function zanderio_sync_store_identity() {
@@ -269,7 +255,7 @@ function zanderio_render_settings_page() {
     $domain = get_option( 'zanderio_domain', '' );
     $connected = ! empty( $secret );
 
-    if ( $connected && ! get_option( 'zanderio_store_id', '' ) ) {
+    if ( $connected && ! get_option( 'zanderio_widget_key', '' ) ) {
         zanderio_sync_store_identity();
     }
 
@@ -522,7 +508,7 @@ function zanderio_uninstall() {
     /* Clean up ALL plugin options */
     delete_option( 'zanderio_plugin_secret' );
     delete_option( 'zanderio_domain' );
-    delete_option( 'zanderio_store_id' );
+    delete_option( 'zanderio_store_id' ); /* legacy: written by <=1.4.2, no longer set */
     delete_option( 'zanderio_widget_color' );
     delete_option( 'zanderio_activation_error' );
     delete_transient( 'zanderio_authorize_url' );
