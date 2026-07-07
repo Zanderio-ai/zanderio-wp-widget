@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.4.3
+ * Version:      1.4.4
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.4.3' );
+define( 'ZANDERIO_VERSION',      '1.4.4' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -184,6 +184,36 @@ function zanderio_activate() {
  * admin page load after activation.
  * ══════════════════════════════════════════════════════════════════════════ */
 add_action( 'admin_init', 'zanderio_maybe_redirect' );
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Force a live update check when a merchant looks at Settings → Zanderio
+ *
+ * WordPress core throttles wp_update_plugins() to roughly once per 12 hours
+ * (tracked via the update_plugins site transient's last_checked value) —
+ * that throttle is why a fresh release can be live on WordPress.org for
+ * hours before a given site's Plugins screen shows "Update now". There is no
+ * push mechanism in WordPress core; every site is pull/cron-based, for every
+ * plugin, with no exception — the check only happens on an admin page load
+ * once the transient is stale (or absent).
+ *
+ * Deliberately NOT rescheduling wp_version_check itself (the cron_schedules
+ * approach): that changes the whole site's update-check cadence for every
+ * plugin and theme, not just this one, and is flagged as bad practice by the
+ * WordPress.org plugin review guidelines. Clearing our own transient at a
+ * point the merchant is already looking is the compliant equivalent of
+ * force-check — it makes the very next admin page load do a real, live
+ * check instead of serving a stale cached result.
+ * ══════════════════════════════════════════════════════════════════════════ */
+add_action( 'admin_init', 'zanderio_force_update_check_on_settings_view' );
+
+function zanderio_force_update_check_on_settings_view() {
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page-identity check, no state change from the query var itself.
+    if ( ! isset( $_GET['page'] ) || 'zanderio' !== sanitize_text_field( wp_unslash( $_GET['page'] ) ) ) {
+        return;
+    }
+
+    delete_site_transient( 'update_plugins' );
+}
 
 function zanderio_maybe_redirect() {
     if ( ! get_transient( 'zanderio_redirect_after_activate' ) ) {

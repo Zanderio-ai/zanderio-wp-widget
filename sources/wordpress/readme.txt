@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.4.3
+Stable tag: 1.4.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.4 =
+* The Settings → Zanderio page now checks WordPress.org for plugin updates every time you view it, instead of waiting for WordPress's normal update schedule (up to 12 hours).
 
 = 1.4.3 =
 * Fixed the chat widget not appearing after a successful connection — the plugin now reliably receives its widget identifier from the Zanderio service and renders the widget on the storefront.
