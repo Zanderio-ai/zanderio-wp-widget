@@ -104,7 +104,8 @@ const input = css`
   border: 1px solid ${tokens.color.border};
   border-radius: ${tokens.radius.md};
   padding: 10px 12px;
-  font-size: 14px;
+  /* 16px avoids iOS Safari's auto-zoom-on-focus for inputs under 16px. */
+  font-size: 16px;
   font-family: ${tokens.font.family};
   outline: none;
   &:focus {

@@ -7,15 +7,18 @@
  * stylesheet and renders the launcher, proactive nudge, and chat window.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Global, css } from "@emotion/react";
 import { useBootstrap } from "@/core/use-bootstrap";
 import { useWidgetChat } from "@/core/use-widget-chat";
 import { newConversationId } from "@/core/bootstrap";
+import { useNudges } from "@/core/nudges/use-nudges";
 import { useResponsive } from "@/hooks/use-responsive";
+import { detectStorefront } from "@/platform/detect";
 import { globalStyles } from "@/ui/styles";
 import { Launcher } from "@/ui/Launcher";
 import { ProactiveBubble } from "@/ui/ProactiveBubble";
+import { NudgeBubble } from "@/ui/NudgeBubble";
 import { ChatWindow } from "@/ui/ChatWindow";
 import type { WidgetSettings } from "@/config/types";
 
@@ -35,6 +38,27 @@ export default function App({ settings }: { settings: WidgetSettings }) {
     conversationId,
     token: result?.aiServiceToken ?? null,
   });
+
+  const storefront = useMemo(() => detectStorefront(settings.platform), [settings.platform]);
+  const userMessageCount = useMemo(
+    () => chat.messages.filter((m) => m.role === "user").length,
+    [chat.messages],
+  );
+  const nudgeEngine = useNudges({
+    nudges: result?.nudges ?? [],
+    storeId: result?.storeId ?? null,
+    shopperId: result?.visitorId ?? null,
+    conversationId,
+    storefront,
+    isOpen,
+    messageCount: userMessageCount,
+  });
+
+  const openFromNudge = useCallback(() => {
+    if (nudgeEngine.activeNudge) chat.send(nudgeEngine.activeNudge.clickPrompt);
+    nudgeEngine.dismiss();
+    setIsOpen(true);
+  }, [chat, nudgeEngine]);
 
   // Backend signals a closed conversation → visitor can start a fresh one.
   // newConversationId persists the new UUID so the next page load resumes it.
@@ -79,11 +103,23 @@ export default function App({ settings }: { settings: WidgetSettings }) {
         />
       )}
 
+      {config && nudgeEngine.activeNudge && !isOpen && (
+        <NudgeBubble
+          message={nudgeEngine.activeNudge.message}
+          name={config.name}
+          brandColor={brandColor}
+          position={position}
+          onOpen={openFromNudge}
+          onDismiss={nudgeEngine.dismiss}
+        />
+      )}
+
       {config && (
         <ProactiveBubble
           config={config}
           brandColor={brandColor}
           isOpen={isOpen}
+          suppressed={Boolean(nudgeEngine.activeNudge)}
           position={position}
           onOpen={() => setIsOpen(true)}
         />
@@ -91,6 +127,8 @@ export default function App({ settings }: { settings: WidgetSettings }) {
 
       <Launcher
         isOpen={isOpen}
+        isLoading={status === "loading"}
+        isMobile={isMobile}
         brandColor={brandColor}
         logoUrl={config?.logoUrl}
         animation={config?.animation}

@@ -52,5 +52,6 @@ export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
       delaySeconds: num(c.animationDelay, 5),
     },
     autoPopup: bool(c.autoPopup, false),
+    voiceAssistantEnabled: bool(c.voiceAssistantEnabled, false),
   };
 }

@@ -3,6 +3,8 @@
  * @description Shared domain types for the widget.
  */
 
+import type { Nudge } from "@/core/nudges/types";
+
 /** Storefront platform the widget is embedded on. */
 export type Storefront = "shopify" | "woocommerce" | "custom" | "unknown";
 
@@ -49,9 +51,11 @@ export interface WidgetConfig {
     delaySeconds: number;
   };
   autoPopup: boolean;
+  /** Merchant kill-switch for the mic/voice-input button. */
+  voiceAssistantEnabled: boolean;
 }
 
-/** Successful response from `POST /api/widget/bootstrap`. */
+/** Successful response from `POST /v1/widget/bootstrap`. */
 export interface BootstrapResult {
   storeId: string;
   tenantId: string;
@@ -61,4 +65,6 @@ export interface BootstrapResult {
   config: WidgetConfig;
   /** Active conversation/thread id — client-owned UUID, persisted in localStorage. */
   conversationId: string;
+  /** Proactive nudges eligible for this store (see core/nudges). */
+  nudges: Nudge[];
 }

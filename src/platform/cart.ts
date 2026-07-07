@@ -21,11 +21,21 @@ export interface CartLine {
   attributes?: Record<string, string>;
 }
 
+export interface CartSnapshot {
+  itemCount: number;
+}
+
 export interface CartAdapter {
   readonly storefront: Storefront;
   /** Whether this storefront supports in-place cart adds. */
   readonly supportsCart: boolean;
   add(line: CartLine): Promise<void>;
+  /**
+   * Read current cart contents, for the `cart_age` nudge trigger. Returns
+   * null when unsupported (custom storefronts) or the read fails — the
+   * trigger simply never fires rather than guessing.
+   */
+  getCart(): Promise<CartSnapshot | null>;
 }
 
 /* ── WooCommerce ─────────────────────────────────────────────────────────── */
@@ -43,9 +53,25 @@ function wooAjaxUrl(): string {
   return url.toString();
 }
 
+/** WooCommerce Store API — public, no auth required, ships with core since 8.x. */
+async function wooGetCart(): Promise<CartSnapshot | null> {
+  try {
+    const res = await fetch("/wp-json/wc/store/v1/cart", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { items_count?: number };
+    return { itemCount: typeof payload.items_count === "number" ? payload.items_count : 0 };
+  } catch {
+    return null;
+  }
+}
+
 const wooAdapter: CartAdapter = {
   storefront: "woocommerce",
   supportsCart: true,
+  getCart: wooGetCart,
   async add(line) {
     const body = new URLSearchParams();
     body.set("product_id", line.productId);
@@ -76,10 +102,39 @@ const wooAdapter: CartAdapter = {
 
 /* ── Shopify / custom (Phase 3) ──────────────────────────────────────────── */
 
+/** Shopify Cart AJAX — public, no auth required. Read-only for now: `add()`
+ * (`POST /cart/add.js`) is still Phase 3 work; the `cart_age` nudge trigger
+ * only needs to observe cart state, not write to it. */
+async function shopifyGetCart(): Promise<CartSnapshot | null> {
+  try {
+    const res = await fetch("/cart.js", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { item_count?: number };
+    return { itemCount: typeof payload.item_count === "number" ? payload.item_count : 0 };
+  } catch {
+    return null;
+  }
+}
+
 // TODO(widget-overhaul Phase 3): implement Shopify Cart AJAX (`POST /cart/add.js`).
+const shopifyAdapter: CartAdapter = {
+  storefront: "shopify",
+  supportsCart: false,
+  getCart: shopifyGetCart,
+  async add() {
+    throw new Error("cart_unsupported");
+  },
+};
+
 const unsupportedAdapter = (storefront: Storefront): CartAdapter => ({
   storefront,
   supportsCart: false,
+  async getCart() {
+    return null;
+  },
   async add() {
     throw new Error("cart_unsupported");
   },
@@ -87,6 +142,7 @@ const unsupportedAdapter = (storefront: Storefront): CartAdapter => ({
 
 export function getCartAdapter(storefront: Storefront): CartAdapter {
   if (storefront === "woocommerce") return wooAdapter;
-  // Shopify cart-add is TODO; custom storefronts deep-link to the PDP.
+  if (storefront === "shopify") return shopifyAdapter;
+  // Custom storefronts have no native cart to observe; deep-link to the PDP.
   return unsupportedAdapter(storefront);
 }

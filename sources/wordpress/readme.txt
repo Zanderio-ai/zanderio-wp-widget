@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 7.0
-Stable tag: 1.4.5
+Stable tag: 1.4.6
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,10 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.6 =
+* Added voice input — shoppers can now ask the assistant questions by speaking instead of typing, with their speech transcribed automatically. Off by default; enable it from Settings → Zanderio.
+* Added proactive nudges — the assistant can now surface a contextual prompt bubble based on shopper behavior (e.g. cart activity), in addition to the existing timed welcome bubble.
 
 = 1.4.5 =
 * Confirmed compatibility with WordPress 7.0.

@@ -33,7 +33,7 @@
  *
  * ── Bootstrap contract ──────────────────────────────────────────────────────
  *   req:  POST /v1/widget/bootstrap  { key, visitor_id? }
- *   res:  { storeId, tenantId, visitorId, aiServiceToken, config }
+ *   res:  { storeId, tenantId, visitorId, aiServiceToken, config, nudges }
  *
  * ConversationId is fully client-owned — the AI service keys LangGraph
  * checkpoints on the UUID, so "start new chat" is just a new UUID.
@@ -41,6 +41,7 @@
 
 import { env } from "@/config/env";
 import { normalizeWidgetConfig } from "./config";
+import { normalizeNudges } from "./nudges/types";
 import type { BootstrapResult, WidgetSettings } from "@/config/types";
 
 const PREFIX = "zan";
@@ -112,6 +113,7 @@ export async function bootstrapWidget(
     aiServiceToken: String(data.aiServiceToken ?? ""),
     config: normalizeWidgetConfig(data.config),
     conversationId,
+    nudges: normalizeNudges(data.nudges),
   };
 }
 
