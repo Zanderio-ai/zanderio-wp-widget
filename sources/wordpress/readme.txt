@@ -2,8 +2,8 @@
 Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
-Tested up to: 6.9
-Stable tag: 1.4.4
+Tested up to: 7.0
+Stable tag: 1.4.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.4.5 =
+* Confirmed compatibility with WordPress 7.0.
 
 = 1.4.4 =
 * The Settings → Zanderio page now checks WordPress.org for plugin updates every time you view it, instead of waiting for WordPress's normal update schedule (up to 12 hours).
