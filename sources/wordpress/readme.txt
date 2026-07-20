@@ -115,6 +115,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 = 1.5.0 =
 * The assistant now suggests relevant follow-up questions after answering, so shoppers can keep the conversation going with a single tap.
 
+= 1.4.7 =
+* The chat widget now goes live instantly after you activate it during setup, instead of waiting for a background sync.
+
 = 1.4.6 =
 * Added voice input — shoppers can now ask the assistant questions by speaking instead of typing, with their speech transcribed automatically. Off by default; enable it from Settings → Zanderio.
 * Added proactive nudges — the assistant can now surface a contextual prompt bubble based on shopper behavior (e.g. cart activity), in addition to the existing timed welcome bubble.

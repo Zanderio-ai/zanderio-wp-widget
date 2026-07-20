@@ -118,6 +118,68 @@ function zanderio_sync_store_identity() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+ * Widget-key bind endpoint
+ *
+ * Lets the Zanderio backend push the widget key straight into the plugin the
+ * moment the merchant activates the widget (Step 5), so the embed renders
+ * immediately instead of waiting for the next health poll.
+ *
+ * Route:  POST /wp-json/zanderio/v1/bind
+ * Auth:   X-Zanderio-Secret header must equal the stored plugin secret.
+ * Body:   { "widget_key": "wdg_..." }
+ * ══════════════════════════════════════════════════════════════════════════ */
+add_action( 'rest_api_init', 'zanderio_register_bind_route' );
+
+function zanderio_register_bind_route() {
+    register_rest_route(
+        'zanderio/v1',
+        '/bind',
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'zanderio_handle_bind',
+            'permission_callback' => 'zanderio_verify_bind_secret',
+        )
+    );
+}
+
+/**
+ * Authenticate the bind request with the per-store shared secret.
+ *
+ * @param  WP_REST_Request $request
+ * @return bool
+ */
+function zanderio_verify_bind_secret( $request ) {
+    $secret = get_option( 'zanderio_plugin_secret', '' );
+    if ( ! $secret ) {
+        return false;
+    }
+    $provided = $request->get_header( 'x-zanderio-secret' );
+    return is_string( $provided ) && hash_equals( $secret, $provided );
+}
+
+/**
+ * Store the widget key pushed by the backend.
+ *
+ * @param  WP_REST_Request $request
+ * @return WP_REST_Response
+ */
+function zanderio_handle_bind( $request ) {
+    $params     = $request->get_json_params();
+    $widget_key = isset( $params['widget_key'] ) ? sanitize_text_field( $params['widget_key'] ) : '';
+
+    if ( ! $widget_key ) {
+        return new WP_REST_Response(
+            array( 'success' => false, 'message' => 'widget_key is required.' ),
+            400
+        );
+    }
+
+    update_option( 'zanderio_widget_key', $widget_key );
+
+    return new WP_REST_Response( array( 'success' => true ), 200 );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
  * Activation hook
  *
  * 1. POST /v1/stores/connection/wordpress/install  →  get authorize_url + secret
