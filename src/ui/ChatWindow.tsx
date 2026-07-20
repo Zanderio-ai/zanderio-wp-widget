@@ -2,10 +2,11 @@
  * @module ui/ChatWindow
  * @description The chat panel — header, scrolling message list, input bar.
  *
- * Owns the panel-scoped overlays (cart bottom sheet, HITL interrupt dialog) and
- * the chat status surface (stream errors, closed banner). The fixed panel is the
- * containing block for those absolutely-positioned overlays, so nothing escapes
- * the shadow root.
+ * Owns the panel-scoped overlays (cart bottom sheet) and the chat status
+ * surface (stream errors, closed banner). The pending booking interrupt is
+ * rendered inline by `MessageList`, not as an overlay here. The fixed panel
+ * is the containing block for absolutely-positioned overlays, so nothing
+ * escapes the shadow root.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,9 +19,7 @@ import { VoiceInputButton } from "./VoiceInputButton";
 import { VoicePanel } from "./VoicePanel";
 import { VoiceErrorBanner } from "./VoiceErrorBanner";
 import { useVoiceInput } from "@/core/use-voice-input";
-import { InterruptDialog } from "./InterruptDialog";
 import { CartSheetProvider } from "@/artifacts/commerce/CartSheet";
-import { ChatActionsProvider } from "@/artifacts/chat-actions";
 import { classifyWidgetError } from "@/core/error-classifier";
 import type { WidgetConfig } from "@/config/types";
 import type { useWidgetChat } from "@/core/use-widget-chat";
@@ -147,25 +146,12 @@ export function ChatWindow({
     },
   });
 
-  // A cancelled interrupt is hidden until a new one arrives (keyed by payload).
-  const [dismissedInterrupt, setDismissedInterrupt] = useState<string | null>(null);
-  const interruptKey = chat.interrupt ? JSON.stringify(chat.interrupt) : null;
-  const showInterrupt = Boolean(chat.interrupt) && interruptKey !== dismissedInterrupt;
-
   const errorState = useMemo(
     () => (chat.error ? classifyWidgetError(chat.error) : null),
     [chat.error],
   );
 
-  const inputDisabled = errorState?.kind === "UNAUTHORIZED";
-
-  const chatActions = useMemo(
-    () => ({
-      hasPendingInterrupt: showInterrupt,
-      respondToInterrupt: chat.respondToInterrupt,
-    }),
-    [showInterrupt, chat.respondToInterrupt],
-  );
+  const inputDisabled = errorState?.kind === "UNAUTHORIZED" || Boolean(chat.interrupt);
 
   return (
     <>
@@ -173,19 +159,19 @@ export function ChatWindow({
         <div css={backdrop} aria-hidden="true" onClick={() => setSize("default")} />
       )}
       <div css={panel(isMobile, isOpen, size)} role="dialog" aria-label={`${config.name} chat`}>
-        <ChatActionsProvider value={chatActions}>
-          <CartSheetProvider>
-            <ChatHeader
-              config={config}
-              isMobile={isMobile}
-              size={size}
-              onToggleExpand={toggleExpand}
-              onToggleModal={toggleModal}
-              onClose={handleClose}
-            />
+        <CartSheetProvider>
+          <ChatHeader
+            config={config}
+            isMobile={isMobile}
+            size={size}
+            onToggleExpand={toggleExpand}
+            onToggleModal={toggleModal}
+            onClose={handleClose}
+          />
           <MessageList
             config={config}
             chat={chat}
+            brandColor={brandColor}
             errorState={errorState}
             onStartNewChat={onStartNewChat}
           />
@@ -228,20 +214,7 @@ export function ChatWindow({
                 />
               </>
             ))}
-
-          {showInterrupt && (
-              <InterruptDialog
-                interrupt={chat.interrupt}
-                brandColor={brandColor}
-                onRespond={(response) => {
-                  setDismissedInterrupt(null);
-                  chat.respondToInterrupt(response);
-                }}
-                onCancel={() => setDismissedInterrupt(interruptKey)}
-              />
-            )}
-          </CartSheetProvider>
-        </ChatActionsProvider>
+        </CartSheetProvider>
       </div>
     </>
   );

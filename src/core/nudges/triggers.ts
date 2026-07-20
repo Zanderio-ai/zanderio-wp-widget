@@ -8,18 +8,18 @@
 
 const VIEWS_STORAGE_KEY = "zan_nudge_views";
 
-function readJSON<T>(key: string, fallback: T): T {
+function readJSON<T>(storage: Storage, key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = storage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
-function writeJSON(key: string, value: unknown): void {
+function writeJSON(storage: Storage, key: string, value: unknown): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    storage.setItem(key, JSON.stringify(value));
   } catch {
     /* private/restricted browsing — non-fatal */
   }
@@ -112,15 +112,20 @@ function ensurePageViewSignal(): void {
   window.addEventListener("popstate", emit);
 }
 
-/** Fires once `viewCount` page views land within `windowSeconds`. A "view"
- * is stamped once at mount (covers full-page-reload storefronts) and again
- * on every subsequent SPA navigation (`pushState` or back/forward). */
+/** Fires once `viewCount` page views are recorded — within `windowSeconds`
+ * when a window is set, or cumulatively across the visit when it's null.
+ * A "view" is stamped once at mount (covers full-page-reload storefronts)
+ * and again on every subsequent SPA navigation (`pushState` or
+ * back/forward). Views live in sessionStorage so the count survives
+ * full-page reloads within a visit but resets for a fresh visit — with no
+ * window, a localStorage count would accumulate forever and instantly trip
+ * for every returning visitor. */
 export class PageVelocityTrigger {
   private readonly onLocationChange = () => this.recordView();
 
   constructor(
     private readonly viewCount: number,
-    private readonly windowSeconds: number,
+    private readonly windowSeconds: number | null,
     private readonly onTrip: () => void,
   ) {}
 
@@ -136,10 +141,13 @@ export class PageVelocityTrigger {
 
   private recordView(): void {
     const now = Date.now();
-    const windowMs = Math.max(0, this.windowSeconds) * 1000;
-    const views = readJSON<number[]>(VIEWS_STORAGE_KEY, []).filter((t) => now - t <= windowMs);
+    let views = readJSON<number[]>(sessionStorage, VIEWS_STORAGE_KEY, []);
+    if (this.windowSeconds != null) {
+      const windowMs = Math.max(0, this.windowSeconds) * 1000;
+      views = views.filter((t) => now - t <= windowMs);
+    }
     views.push(now);
-    writeJSON(VIEWS_STORAGE_KEY, views);
+    writeJSON(sessionStorage, VIEWS_STORAGE_KEY, views);
 
     if (views.length >= this.viewCount) this.onTrip();
   }
@@ -176,14 +184,14 @@ export class CartAgeTrigger {
     if (count === null) return; // storefront doesn't support cart reads
 
     if (count <= 0) {
-      writeJSON(CART_SINCE_KEY, null);
+      writeJSON(localStorage, CART_SINCE_KEY, null);
       return;
     }
 
-    let since = readJSON<number | null>(CART_SINCE_KEY, null);
+    let since = readJSON<number | null>(localStorage, CART_SINCE_KEY, null);
     if (since === null) {
       since = Date.now();
-      writeJSON(CART_SINCE_KEY, since);
+      writeJSON(localStorage, CART_SINCE_KEY, since);
     }
 
     const ageSeconds = (Date.now() - since) / 1000;

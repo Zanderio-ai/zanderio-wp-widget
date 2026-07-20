@@ -1,124 +1,142 @@
 /**
  * @module artifacts/BookingCard
- * @description Booking artifact — provider, duration, and available time slots.
- * Reads `artifact.data.{provider,duration_minutes,timezone,slots}`.
+ * @description Durable confirmation card for a completed booking.
  *
- * When the graph is paused on a HITL interrupt (see {@link useChatActions}) the
- * slots become tappable: choosing one resumes the booking flow with
- * `{ start_time }`. With no pending interrupt the card renders read-only (a
- * historical/illustrative booking summary).
+ * Emitted once by `ai/app/agent/skills/booking/skill.py` as
+ * `Artifact(type="booking", data=BookingData(...))` after `scheduler.book()`
+ * succeeds. Reads `artifact.data.{provider,event_type_name,start_label,
+ * timezone,duration_label,status,reschedule_url,cancel_url}`. The interactive
+ * step-by-step flow (type/slot/info/review) is rendered separately, inline,
+ * by `BookingStepCard`; this card only ever shows the final result.
  */
 
 import { css } from "@emotion/react";
 import { tokens } from "@/config/tokens";
-import type { Artifact } from "@/core/chat-types";
-import { useChatActions } from "./chat-actions";
+import type { Artifact, BookingConfirmation } from "@/core/chat-types";
 import { panel } from "./shell";
 
-interface Slot {
-  label?: string;
-  time?: string;
-  start_time?: string;
-  booked?: boolean;
-  unavailable?: boolean;
-}
+const headerRow = css`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+`;
+
+const badge = (confirmed: boolean) => css`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: ${confirmed ? `${tokens.color.success}1A` : tokens.color.grey[100]};
+  color: ${confirmed ? tokens.color.success : tokens.color.grey[500]};
+`;
+
+const eventName = css`
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+`;
+
+const statusLine = css`
+  font-size: 11px;
+  color: ${tokens.color.textSecondary};
+`;
+
+const when = css`
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+`;
+
+const chipsRow = css`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+`;
+
+const chip = css`
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: ${tokens.radius.pill};
+  background: ${tokens.color.grey[50]};
+  color: ${tokens.color.textSecondary};
+  font-size: 11px;
+`;
+
+const linksRow = css`
+  display: flex;
+  gap: 16px;
+`;
+
+const link = css`
+  font-size: 12px;
+  font-weight: 600;
+  color: ${tokens.color.primary};
+  text-decoration: none;
+`;
+
+const cancelLink = css`
+  font-size: 12px;
+  font-weight: 600;
+  color: ${tokens.color.error};
+  text-decoration: none;
+`;
 
 export function BookingCard({ artifact }: { artifact: Artifact }) {
-  const data = (artifact.data ?? {}) as Record<string, unknown>;
-  const provider = (data.provider as string) ?? "Booking";
-  const duration = data.duration_minutes as number | undefined;
-  const timezone = data.timezone as string | undefined;
-  const slots = (data.slots as Slot[]) ?? [];
-  const { hasPendingInterrupt, respondToInterrupt } = useChatActions();
+  const data = (artifact.data ?? {}) as Partial<BookingConfirmation>;
+  const {
+    provider,
+    event_type_name: eventTypeName,
+    start_label: startLabel,
+    timezone,
+    duration_label: durationLabel,
+    status = "confirmed",
+    reschedule_url: rescheduleUrl,
+    cancel_url: cancelUrl,
+  } = data;
+
+  const isConfirmed = status === "confirmed";
 
   return (
     <div css={panel}>
-      <div css={css`display: flex; align-items: center; gap: 10px; margin-bottom: 12px;`}>
-        <div
-          css={css`
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: ${tokens.color.primaryLighter};
-            color: ${tokens.color.primary};
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 14px;
-          `}
-        >
-          {provider[0]?.toUpperCase() ?? "B"}
-        </div>
+      <div css={headerRow}>
+        <div css={badge(isConfirmed)}>{isConfirmed ? "✓" : "✕"}</div>
         <div>
-          <div css={css`font-size: 14px; font-weight: 700; line-height: 1.2;`}>{provider}</div>
-          <div css={css`font-size: 11px; color: ${tokens.color.textSecondary};`}>
-            {[duration ? `${duration} min` : null, timezone].filter(Boolean).join(" · ")}
+          <div css={eventName}>{eventTypeName || "Appointment"}</div>
+          <div css={statusLine}>
+            {isConfirmed ? "Confirmed" : "Canceled"}
+            {provider ? ` · ${provider}` : ""}
           </div>
         </div>
       </div>
 
-      {artifact.title && <div css={css`font-size: 13px; color: ${tokens.color.textSecondary}; margin-bottom: 12px; line-height: 1.5;`}>{artifact.title}</div>}
+      <div css={when}>{startLabel}</div>
+      <div css={chipsRow}>
+        {durationLabel && <span css={chip}>{durationLabel}</span>}
+        {timezone && <span css={chip}>{timezone}</span>}
+      </div>
 
-      {slots.length > 0 && (
-        <div css={css`display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px;`}>
-          {slots.map((s, i) => {
-            const disabled = s.booked || s.unavailable;
-            const startTime = s.start_time ?? s.time;
-            const interactive = hasPendingInterrupt && !disabled && Boolean(startTime);
-            return (
-              <button
-                key={i}
-                type="button"
-                disabled={!interactive}
-                onClick={() => interactive && respondToInterrupt({ start_time: startTime })}
-                css={css`
-                  height: 28px;
-                  display: inline-flex;
-                  align-items: center;
-                  padding: 0 10px;
-                  font-size: 12px;
-                  font-weight: 500;
-                  font-family: ${tokens.font.family};
-                  border-radius: 999px;
-                  border: 1px solid ${disabled ? "transparent" : tokens.color.border};
-                  background: ${disabled ? tokens.color.grey[100] : tokens.color.grey[50]};
-                  color: ${disabled ? tokens.color.textDisabled : tokens.color.textSecondary};
-                  text-decoration: ${disabled ? "line-through" : "none"};
-                  cursor: ${interactive ? "pointer" : "default"};
-                  &:hover {
-                    ${interactive
-                      ? `border-color: ${tokens.color.primary}; color: ${tokens.color.primary};`
-                      : ""}
-                  }
-                `}
-              >
-                {s.label ?? s.time ?? "Slot"}
-              </button>
-            );
-          })}
+      {(rescheduleUrl || cancelUrl) && (
+        <div css={linksRow}>
+          {rescheduleUrl && (
+            <a css={link} href={rescheduleUrl} target="_blank" rel="noopener noreferrer">
+              Reschedule
+            </a>
+          )}
+          {cancelUrl && (
+            <a css={cancelLink} href={cancelUrl} target="_blank" rel="noopener noreferrer">
+              Cancel
+            </a>
+          )}
         </div>
       )}
-
-      <button
-        type="button"
-        disabled={!hasPendingInterrupt}
-        css={css`
-          width: 100%;
-          padding: 10px;
-          border: none;
-          border-radius: 10px;
-          background: ${tokens.color.primary};
-          color: #fff;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: ${tokens.font.family};
-          cursor: ${hasPendingInterrupt ? "pointer" : "default"};
-          opacity: ${hasPendingInterrupt ? 1 : 0.55};
-        `}
-      >
-        {hasPendingInterrupt ? "Select a time above" : "Book Appointment"}
-      </button>
     </div>
   );
 }

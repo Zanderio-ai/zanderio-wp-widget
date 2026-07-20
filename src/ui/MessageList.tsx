@@ -7,6 +7,7 @@
 import { useEffect, useRef } from "react";
 import { css } from "@emotion/react";
 import { MessageContent } from "./MessageContent";
+import { BookingStepCard } from "./BookingStepCard";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { StatusBanner } from "./StatusBanner";
 import { ConversationEndedScreen } from "./ConversationEndedScreen";
@@ -19,6 +20,7 @@ import type { WidgetChat } from "./ChatWindow";
 interface MessageListProps {
   config: WidgetConfig;
   chat: WidgetChat;
+  brandColor: string;
   errorState: WidgetErrorState | null;
   onStartNewChat: () => void;
 }
@@ -62,11 +64,12 @@ function hasRenderableContent(message: ChatUIMessage): boolean {
     (p) =>
       (p.type === "text" && p.text.trim().length > 0) ||
       p.type === "file" ||
-      p.type === "data-artifact",
+      p.type === "data-artifact" ||
+      p.type === "data-suggestions",
   );
 }
 
-export function MessageList({ config, chat, errorState, onStartNewChat }: MessageListProps) {
+export function MessageList({ config, chat, brandColor, errorState, onStartNewChat }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,6 +94,9 @@ export function MessageList({ config, chat, errorState, onStartNewChat }: Messag
         const artifacts = message.parts.filter(
           (p): p is Extract<typeof p, { type: "data-artifact" }> => p.type === "data-artifact",
         );
+        const suggestions = message.parts.flatMap((part) =>
+          part.type === "data-suggestions" ? part.data : [],
+        );
 
         return (
           <div key={message.id} css={row(isBot)}>
@@ -112,9 +118,61 @@ export function MessageList({ config, chat, errorState, onStartNewChat }: Messag
                 ))}
               </div>
             )}
+            {isBot && suggestions.length > 0 && (
+              <div
+                css={css`
+                  margin-top: 8px;
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 5px;
+                `}
+              >
+                {suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    disabled={chat.isStreaming || chat.isClosed}
+                    onClick={() => chat.send(suggestion)}
+                    css={css`
+                      border: 1px solid color-mix(in srgb, ${brandColor} 28%, transparent);
+                      border-radius: 999px;
+                      background: color-mix(in srgb, ${brandColor} 5%, transparent);
+                      color: ${brandColor};
+                      padding: 4px 8px;
+                      font: inherit;
+                      font-size: 11px;
+                      font-weight: 500;
+                      line-height: 1.25;
+                      cursor: pointer;
+                      transition: background-color 150ms ease, border-color 150ms ease;
+                      &:hover:not(:disabled) {
+                        background: color-mix(in srgb, ${brandColor} 10%, transparent);
+                        border-color: color-mix(in srgb, ${brandColor} 45%, transparent);
+                      }
+                      &:disabled {
+                        cursor: default;
+                        opacity: 0.55;
+                      }
+                    `}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
+
+      {chat.interrupt && !chat.isStreaming && (
+        <div css={row(true)}>
+          <BookingStepCard
+            interrupt={chat.interrupt}
+            brandColor={brandColor}
+            onRespond={chat.respondToInterrupt}
+          />
+        </div>
+      )}
 
       {chat.isStreaming && <ThinkingIndicator brandColor={config.color} />}
 

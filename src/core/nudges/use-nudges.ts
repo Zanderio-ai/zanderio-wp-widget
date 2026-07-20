@@ -5,18 +5,23 @@
  * trips through Platform (`fireNudge`), which owns the actual on/off
  * decision (settings, integration gate, cooldown).
  *
- * The two inactivity nudges are deliberately different clocks:
+ * The inactivity/booking nudges are deliberately different clocks:
  *   - `inactivity_no_messages` — DWELL: fires after N seconds on the site
  *     with zero chat messages sent, even while the shopper actively
  *     browses (activity must not reset it, or an engaged browser would
  *     never see it).
  *   - `inactivity_has_messages` — IDLE: the shopper chatted, then went
  *     quiet; resets on any page activity.
+ *   - `booking` — DWELL, armed only while the chat is CLOSED with an
+ *     abandoned booking in the conversation (link shown / flow paused,
+ *     not confirmed). Its delay is shorter than has-messages so it wins
+ *     the race: "finish your booking?" first, generic "anything else?"
+ *     later.
  * Message count is checked at trip time (live via ref), so a history
  * hydration that lands mid-timer flips the variant correctly.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fireNudge } from "./fire";
 import { DwellTrigger, IdleTrigger, PageVelocityTrigger, CartAgeTrigger } from "./triggers";
 import { getCartAdapter } from "@/platform/cart";
@@ -24,6 +29,12 @@ import type { Storefront } from "@/config/types";
 import type { Nudge } from "./types";
 
 const SHOWN_KEY_PREFIX = "zan_nudge_shown:";
+
+// A denied fire (server cooldown, gated off, network hiccup) must NOT burn
+// the nudge for the whole session — only an actually-displayed bubble does.
+// This throttle just keeps re-tripping triggers (e.g. the cart poll) from
+// spamming the fire endpoint between attempts.
+const RETRY_INTERVAL_MS = 60_000;
 
 function alreadyShown(key: string): boolean {
   try {
@@ -55,6 +66,10 @@ interface UseNudgesArgs {
   storefront: Storefront;
   isOpen: boolean;
   messageCount: number;
+  /** Abandoned booking in the conversation — see core/nudges/booking-context. */
+  hasBookingContext: boolean;
+  /** Scheduling link found in the chat (knowledge-base booking path). */
+  bookingUrl: string | null;
 }
 
 export function useNudges({
@@ -65,6 +80,8 @@ export function useNudges({
   storefront,
   isOpen,
   messageCount,
+  hasBookingContext,
+  bookingUrl,
 }: UseNudgesArgs) {
   const [activeNudge, setActiveNudge] = useState<ActiveNudge | null>(null);
 
@@ -77,9 +94,14 @@ export function useNudges({
   // and restart every trigger (and double-record the initial page view)
   // right after mount.
   const conversationIdRef = useRef(conversationId);
+  const bookingUrlRef = useRef(bookingUrl);
+  const lastAttemptAtRef = useRef(new Map<string, number>());
   useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
+  useEffect(() => {
+    bookingUrlRef.current = bookingUrl;
+  }, [bookingUrl]);
   useEffect(() => {
     messageCountRef.current = messageCount;
   }, [messageCount]);
@@ -94,31 +116,22 @@ export function useNudges({
     if (isOpen) setActiveNudge(null);
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!storeId || !shopperId || nudges.length === 0) return;
-
-    const byKey = new Map(nudges.map((n) => [n.key, n]));
-
-    // A denied fire (server cooldown, gated off, network hiccup) must NOT
-    // burn the nudge for the whole session — only an actually-displayed
-    // bubble does. This throttle just keeps re-tripping triggers (e.g. the
-    // cart poll) from spamming the fire endpoint between attempts.
-    const RETRY_INTERVAL_MS = 60_000;
-    const lastAttemptAt = new Map<string, number>();
-
-    async function attemptFire(nudge: Nudge) {
+  const attemptFire = useCallback(
+    async (nudge: Nudge) => {
+      if (!storeId || !shopperId) return;
       if (isOpenRef.current || activeNudgeRef.current) return;
       if (alreadyShown(nudge.key)) return;
 
-      const last = lastAttemptAt.get(nudge.key) ?? 0;
+      const last = lastAttemptAtRef.current.get(nudge.key) ?? 0;
       if (Date.now() - last < RETRY_INTERVAL_MS) return;
-      lastAttemptAt.set(nudge.key, Date.now());
+      lastAttemptAtRef.current.set(nudge.key, Date.now());
 
       const result = await fireNudge({
-        storeId: storeId!,
-        shopperId: shopperId!,
+        storeId,
+        shopperId,
         key: nudge.key,
         conversationId: conversationIdRef.current,
+        bookingUrl: nudge.key === "booking" ? bookingUrlRef.current : undefined,
       });
 
       if (result.allow) {
@@ -134,8 +147,14 @@ export function useNudges({
         // testing on a storefront.
         console.debug(`[zanderio] nudge "${nudge.key}" not shown:`, result.reason ?? "denied");
       }
-    }
+    },
+    [storeId, shopperId],
+  );
 
+  useEffect(() => {
+    if (!storeId || !shopperId || nudges.length === 0) return;
+
+    const byKey = new Map(nudges.map((n) => [n.key, n]));
     const stops: Array<() => void> = [];
 
     // Dwell: on-site N seconds with no chat message sent. Does not reset on
@@ -159,15 +178,10 @@ export function useNudges({
       stops.push(() => idle.stop());
     }
 
-    const booking = byKey.get("booking");
-    if (booking?.trigger.delaySeconds != null) {
-      const idle = new IdleTrigger(booking.trigger.delaySeconds, () => void attemptFire(booking));
-      idle.start();
-      stops.push(() => idle.stop());
-    }
-
+    // windowSeconds is optional: null means "N pages this visit, no time
+    // limit" rather than "N pages within the window".
     const searching = nudges.find((n) => n.trigger.type === "page_velocity");
-    if (searching?.trigger.viewCount != null && searching.trigger.windowSeconds != null) {
+    if (searching?.trigger.viewCount != null) {
       const velocity = new PageVelocityTrigger(
         searching.trigger.viewCount,
         searching.trigger.windowSeconds,
@@ -200,7 +214,43 @@ export function useNudges({
     // are read live via refs instead so timers aren't torn down and
     // restarted constantly (or immediately after mount, once, when
     // conversationId settles).
-  }, [nudges, storeId, shopperId, storefront]);
+  }, [nudges, storeId, shopperId, storefront, attemptFire]);
+
+  // Booking: armed only while the chat is CLOSED with an abandoned booking
+  // in the conversation. Deliberately dependent on isOpen/hasBookingContext
+  // (unlike the triggers above) — closing the chat is exactly the moment
+  // the countdown should start, and reopening it must cancel the timer.
+  //
+  // The dwell RE-ARMS after each attempt: a single denied fire (server
+  // cooldown mid-expiry, another bubble on screen at trip time, a network
+  // blip) must not kill the nudge for the whole closed-chat period the way
+  // a one-shot timer would. attemptFire's own throttle caps actual POSTs
+  // to one a minute, and a shown bubble stops the loop via alreadyShown.
+  useEffect(() => {
+    const booking = nudges.find((n) => n.key === "booking");
+    if (!booking || booking.trigger.delaySeconds == null) return;
+    if (isOpen || !hasBookingContext) return;
+    if (alreadyShown(booking.key)) return;
+
+    let dwell: DwellTrigger | null = null;
+    let disposed = false;
+
+    const arm = () => {
+      if (disposed) return;
+      dwell = new DwellTrigger(booking.trigger.delaySeconds!, () => {
+        void attemptFire(booking).finally(() => {
+          if (!alreadyShown(booking.key)) arm();
+        });
+      });
+      dwell.start();
+    };
+    arm();
+
+    return () => {
+      disposed = true;
+      dwell?.stop();
+    };
+  }, [nudges, isOpen, hasBookingContext, attemptFire]);
 
   const dismiss = () => setActiveNudge(null);
 

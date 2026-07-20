@@ -14,6 +14,8 @@ interface FireNudgeArgs {
   shopperId: string;
   key: string;
   conversationId?: string | null;
+  /** Booking link found in the chat (knowledge-base path) — booking key only. */
+  bookingUrl?: string | null;
 }
 
 export async function fireNudge({
@@ -21,6 +23,7 @@ export async function fireNudge({
   shopperId,
   key,
   conversationId,
+  bookingUrl,
 }: FireNudgeArgs): Promise<FireNudgeResult> {
   try {
     const res = await fetch(`${env.API_URL}/v1/widget/nudges/fire`, {
@@ -31,6 +34,7 @@ export async function fireNudge({
         shopper_id: shopperId,
         key,
         conversation_id: conversationId ?? undefined,
+        booking_url: bookingUrl ?? undefined,
       }),
     });
 

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { env } from "@/config/env";
-import { fetchThreadState, langGraphToUIMessages } from "./history";
+import { fetchThreadState, hydratedInterruptMessage, langGraphToUIMessages } from "./history";
 import type { ChatUIMessage } from "./chat-types";
 
 interface UseWidgetChatArgs {
@@ -104,7 +104,9 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     fetchThreadState(conversationId, token, controller.signal).then((state) => {
       if (cancelled) return;
       if (state?.status === "closed") setIsClosed(true);
-      setMessages(langGraphToUIMessages(state?.values?.messages ?? []));
+      const history = langGraphToUIMessages(state?.values?.messages ?? []);
+      const pending = hydratedInterruptMessage(state?.interrupt);
+      setMessages(pending ? [...history, pending] : history);
       setIsHistoryLoading(false);
     });
 
