@@ -731,8 +731,9 @@ function zanderio_enqueue_widget() {
      * adds resolve to the WooCommerce adapter without runtime sniffing.
      */
     $config = array(
-        'key'      => $widget_key,
-        'platform' => 'woocommerce',
+        'key'           => $widget_key,
+        'platform'      => 'woocommerce',
+        'storeApiNonce' => wp_create_nonce( 'wc_store_api' ),
     );
 
     $config = wp_json_encode( $config );

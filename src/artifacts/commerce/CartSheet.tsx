@@ -4,16 +4,15 @@
  *
  * Port of client/app `commerce/CartSheet.tsx`, but instead of a mock in-memory
  * cart it drives the real storefront via {@link getCartAdapter}:
- *   - WooCommerce → adds to the live cart (wc-ajax) + fragment refresh.
- *   - Shopify/custom → no in-place add yet; falls back to opening the PDP.
+ *   - WooCommerce → adds through the Blocks cart store / Store API.
+ *   - Shopify → adds through the storefront Cart Ajax API.
+ *   - Custom → opens the verified product page.
  *
  * Per product direction, the add-to-cart action lives on the product card; this
  * sheet only appears after the shopper taps it, to pick options + confirm.
  *
- * TODO(widget-overhaul): the WooCommerce adapter needs the store product id, but
- * the artifact carries the catalog `doc_id`. A catalog→store id mapping (or the
- * AI service emitting the store product id on the artifact) is required before
- * Woo adds resolve reliably. Until then a missing id falls back to the PDP.
+ * Product and variant identifiers are emitted as explicit artifact fields. The
+ * widget never derives a storefront ID from an internal document identifier.
  */
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
@@ -73,6 +72,18 @@ function defaultSelections(axes: Axis[]): Record<string, string> {
     if (first) sel[axis.name] = first.value;
   }
   return sel;
+}
+
+function resolveVariant(item: CommerceItem, selections: Record<string, string>) {
+  return item.variants?.find(
+    (variant) =>
+      variant.in_stock !== false &&
+      Object.entries(selections).every(([name, value]) =>
+        variant.options?.some(
+          (option) => option.name?.toLocaleLowerCase() === name.toLocaleLowerCase() && option.value === value,
+        ),
+      ),
+  );
 }
 
 function SheetBody({
@@ -192,10 +203,11 @@ export function CartSheetProvider({ children }: { children: React.ReactNode }) {
     async (selections: Record<string, string>) => {
       if (!item) return;
       const adapter = getCartAdapter(detectStorefront());
-      const productId = (item.doc_id ?? "").split(":")[0];
+      const productId = item.product_id ?? "";
+      const variant = resolveVariant(item, selections);
+      const variantId = variant?.id || (Object.keys(selections).length === 0 ? item.default_variant_id : "");
 
-      if (!adapter.supportsCart || !productId) {
-        // Shopify/custom or unmapped id → send the shopper to the PDP instead.
+      if (!adapter.supportsCart || !productId || (item.platform === "shopify" && !variantId)) {
         if (item.url) window.open(item.url, "_blank", "noopener");
         setItem(null);
         return;
@@ -203,9 +215,9 @@ export function CartSheetProvider({ children }: { children: React.ReactNode }) {
 
       setSubmitting(true);
       try {
-        await adapter.add({ productId, quantity: 1, attributes: selections });
-        const variant = Object.values(selections).join(" · ");
-        showToast(`${item.title ?? "Item"} added to cart${variant ? ` — ${variant}` : ""}`);
+        await adapter.add({ productId, variationId: variantId || undefined, quantity: 1, attributes: selections });
+        const selectionLabel = Object.values(selections).join(" · ");
+        showToast(`${item.title ?? "Item"} added to cart${selectionLabel ? ` — ${selectionLabel}` : ""}`);
         setItem(null);
       } catch {
         showToast("Couldn't add to cart. Try the product page.");

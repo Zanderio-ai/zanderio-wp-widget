@@ -13,6 +13,15 @@ import { useCartSheet } from "./CartSheet";
 
 export interface CommerceItem {
   doc_id?: string;
+  product_id?: string;
+  platform?: string;
+  default_variant_id?: string;
+  variants?: Array<{
+    id: string;
+    options?: Array<{ name?: string; value?: string }>;
+    in_stock?: boolean;
+    price?: number | null;
+  }>;
   title?: string;
   image?: string;
   brand?: string;
