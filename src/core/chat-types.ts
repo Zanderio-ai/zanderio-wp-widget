@@ -29,13 +29,18 @@ export type ChatDataTypes = {
 export type ChatUIMessage = UIMessage<never, ChatDataTypes>;
 
 // ── Booking (HITL scheduling flow) ──────────────────────────────────────────
-// Mirrors `ai/app/agent/skills/booking/schemas.py::InterruptEnvelope` and the
+// Mirrors `ai/app/modules/booking/schemas.py::InterruptEnvelope` and the
 // `Artifact(type="booking", data=BookingData(...))` confirmation card. The
 // `interrupt` data part above stays loosely typed (`value: unknown`) since it
 // is a generic HITL channel; components narrow to `BookingInterrupt` when
 // `phase` is one of these four values.
 
-export type BookingPhase = "select_event_type" | "select_slot" | "collect_info" | "review";
+export type BookingPhase =
+  | "select_event_type"
+  | "select_location"
+  | "select_slot"
+  | "collect_info"
+  | "review";
 
 export interface BookingOption {
   id?: string;
@@ -44,6 +49,9 @@ export interface BookingOption {
   duration?: string | null;
   start_time?: string;
   label?: string;
+  kind?: string;
+  location?: string | null;
+  requires_input?: boolean;
 }
 
 export interface BookingInterrupt {
@@ -55,7 +63,8 @@ export interface BookingInterrupt {
   start_time?: string;
   start_label?: string;
   required?: string[];
-  contact?: { name: string; email: string; notes?: string | null } | null;
+  contact?: { name: string; email: string } | null;
+  location?: BookingOption | null;
   notice?: string | null;
 }
 

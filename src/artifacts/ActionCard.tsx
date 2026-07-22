@@ -1,7 +1,6 @@
 /**
  * @module artifacts/ActionCard
- * @description Single call-to-action artifact (book / open / etc.). Accepts both
- * the protocol shape (action in `data`) and a legacy `data.items[0]` wrapper.
+ * @description Single call-to-action artifact (book / open / etc.).
  */
 
 import { css } from "@emotion/react";
@@ -13,7 +12,7 @@ export function ActionCard({ artifact }: { artifact: Artifact }) {
   const data = artifact.data as Record<string, unknown> | undefined;
   if (!data) return null;
 
-  const action = ((data.items as Array<Record<string, unknown>>)?.[0] ?? data) as Record<string, unknown>;
+  const action = data;
   const label = (action.label as string) ?? artifact.title ?? "Action";
   const url = action.url as string | undefined;
   const secondary = action.style === "secondary";
@@ -36,7 +35,9 @@ export function ActionCard({ artifact }: { artifact: Artifact }) {
 
   return (
     <div css={panel}>
-      {artifact.title && <div css={[cardTitle, css`margin-bottom: 10px;`]}>{artifact.title}</div>}
+      {artifact.title && artifact.title !== label && (
+        <div css={[cardTitle, css`margin-bottom: 10px;`]}>{artifact.title}</div>
+      )}
       {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" css={styles}>
           {label}

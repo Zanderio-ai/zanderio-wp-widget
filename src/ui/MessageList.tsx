@@ -94,9 +94,14 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
         const artifacts = message.parts.filter(
           (p): p is Extract<typeof p, { type: "data-artifact" }> => p.type === "data-artifact",
         );
-        const suggestions = message.parts.flatMap((part) =>
-          part.type === "data-suggestions" ? part.data : [],
-        );
+        const hasExclusiveContinuation =
+          message.parts.some((part) => part.type === "data-interrupt") ||
+          artifacts.some(({ data }) => ["action", "booking"].includes(data.type));
+        const suggestions = hasExclusiveContinuation
+          ? []
+          : message.parts.flatMap((part) =>
+              part.type === "data-suggestions" ? part.data : [],
+            );
 
         return (
           <div key={message.id} css={row(isBot)}>

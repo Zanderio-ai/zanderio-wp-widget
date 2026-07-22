@@ -68,8 +68,6 @@ interface UseNudgesArgs {
   messageCount: number;
   /** Abandoned booking in the conversation — see core/nudges/booking-context. */
   hasBookingContext: boolean;
-  /** Scheduling link found in the chat (knowledge-base booking path). */
-  bookingUrl: string | null;
 }
 
 export function useNudges({
@@ -81,7 +79,6 @@ export function useNudges({
   isOpen,
   messageCount,
   hasBookingContext,
-  bookingUrl,
 }: UseNudgesArgs) {
   const [activeNudge, setActiveNudge] = useState<ActiveNudge | null>(null);
 
@@ -94,14 +91,10 @@ export function useNudges({
   // and restart every trigger (and double-record the initial page view)
   // right after mount.
   const conversationIdRef = useRef(conversationId);
-  const bookingUrlRef = useRef(bookingUrl);
   const lastAttemptAtRef = useRef(new Map<string, number>());
   useEffect(() => {
     isOpenRef.current = isOpen;
   }, [isOpen]);
-  useEffect(() => {
-    bookingUrlRef.current = bookingUrl;
-  }, [bookingUrl]);
   useEffect(() => {
     messageCountRef.current = messageCount;
   }, [messageCount]);
@@ -131,7 +124,6 @@ export function useNudges({
         shopperId,
         key: nudge.key,
         conversationId: conversationIdRef.current,
-        bookingUrl: nudge.key === "booking" ? bookingUrlRef.current : undefined,
       });
 
       if (result.allow) {

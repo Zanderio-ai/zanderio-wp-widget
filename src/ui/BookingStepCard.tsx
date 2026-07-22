@@ -3,7 +3,7 @@
  * @description Inline card for the LangGraph HITL booking flow.
  *
  * Token-styled twin of client/app playground `BookingStepCard.tsx`. Renders
- * whichever `data-interrupt` phase (select_event_type / select_slot /
+ * whichever `data-interrupt` phase (select_event_type / select_location / select_slot /
  * collect_info / review) is currently pending, inline at the tail of the
  * message list — replaces the old bottom-sheet `InterruptDialog` overlay. The
  * response is sent back via the JSON-resume message pattern
@@ -25,6 +25,7 @@ interface BookingStepCardProps {
 
 const PHASE_TITLE: Record<string, string> = {
   select_event_type: "Choose appointment type",
+  select_location: "Choose a meeting location",
   select_slot: "Choose a time",
   collect_info: "Your details",
   review: "Confirm your booking",
@@ -198,18 +199,27 @@ function BookingStepBody({
   onRespond: (response: BookingResume) => void;
 }) {
   const [selected, setSelected] = useState("");
-  const [form, setForm] = useState({ name: "", email: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", location: "" });
 
   const { phase, options = [] } = payload;
 
-  const needsSelection = phase === "select_event_type" || phase === "select_slot";
+  const needsSelection =
+    phase === "select_event_type" || phase === "select_location" || phase === "select_slot";
   const confirmDisabled =
     (needsSelection && !selected) ||
-    (phase === "collect_info" && (!form.name.trim() || !form.email.trim()));
+    (phase === "collect_info" &&
+      (!form.name.trim() ||
+        !form.email.trim() ||
+        (payload.location?.requires_input && !form.location.trim())));
   const showBack = phase !== "select_event_type";
 
   const confirm = () => {
-    if (phase === "select_event_type") onRespond({ event_type_id: selected });
+    if (phase === "select_event_type")
+      onRespond({
+        event_type_id: selected,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      });
+    else if (phase === "select_location") onRespond({ location_id: selected });
     else if (phase === "select_slot") onRespond({ start_time: selected });
     else if (phase === "collect_info") onRespond({ ...form });
     else onRespond({ confirm: true });
@@ -254,6 +264,21 @@ function BookingStepBody({
         </div>
       )}
 
+      {phase === "select_location" && (
+        <div css={optionList}>
+          {options.map((opt, i) => {
+            const id = opt.id ?? String(i);
+            const active = selected === id;
+            return (
+              <button key={id} type="button" css={optionRow(active, brandColor)} onClick={() => setSelected(id)}>
+                <span css={radio(active, brandColor)} />
+                {String(opt.label ?? opt.location ?? opt.kind ?? `Location ${i + 1}`)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {phase === "collect_info" && (
         <div css={fieldGroup}>
           {(payload.event_type?.name || payload.start_label) && (
@@ -281,15 +306,19 @@ function BookingStepBody({
               placeholder="you@example.com"
             />
           </div>
-          <div>
-            <label css={fieldLabel}>Notes (optional)</label>
+          {payload.location?.requires_input && (
+            <div>
+            <label css={fieldLabel}>
+              {payload.location.kind === "outbound_call" ? "Phone number" : "Meeting location"}
+            </label>
             <input
               css={input}
-              value={form.notes}
-              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-              placeholder="Anything else?"
+              value={form.location}
+              onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+              placeholder={payload.location.kind === "outbound_call" ? "+1 555 123 4567" : "Your preferred location"}
             />
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -301,7 +330,7 @@ function BookingStepBody({
           <span css={css`font-size: 13px;`}>
             {payload.contact?.name} &middot; {payload.contact?.email}
           </span>
-          {payload.contact?.notes && <span css={optionSub}>{payload.contact.notes}</span>}
+          {payload.location?.label && <span css={optionSub}>{payload.location.label}</span>}
         </div>
       )}
 

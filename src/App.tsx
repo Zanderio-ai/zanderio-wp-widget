@@ -13,7 +13,7 @@ import { useBootstrap } from "@/core/use-bootstrap";
 import { useWidgetChat } from "@/core/use-widget-chat";
 import { newConversationId } from "@/core/bootstrap";
 import { useNudges } from "@/core/nudges/use-nudges";
-import { hasAbandonedBookingContext, extractBookingLink } from "@/core/nudges/booking-context";
+import { hasAbandonedBookingContext } from "@/core/nudges/booking-context";
 import { useResponsive } from "@/hooks/use-responsive";
 import { detectStorefront } from "@/platform/detect";
 import { globalStyles } from "@/ui/styles";
@@ -49,7 +49,6 @@ export default function App({ settings }: { settings: WidgetSettings }) {
     () => hasAbandonedBookingContext(chat.messages, chat.interrupt),
     [chat.messages, chat.interrupt],
   );
-  const bookingUrl = useMemo(() => extractBookingLink(chat.messages), [chat.messages]);
   const nudgeEngine = useNudges({
     nudges: result?.nudges ?? [],
     storeId: result?.storeId ?? null,
@@ -59,7 +58,6 @@ export default function App({ settings }: { settings: WidgetSettings }) {
     isOpen,
     messageCount: userMessageCount,
     hasBookingContext,
-    bookingUrl,
   });
 
   const openFromNudge = useCallback(() => {
