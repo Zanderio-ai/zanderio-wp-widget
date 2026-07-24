@@ -49,6 +49,8 @@ export interface BookingOption {
   duration?: string | null;
   start_time?: string;
   label?: string;
+  date_label?: string;
+  time_label?: string;
   kind?: string;
   location?: string | null;
   requires_input?: boolean;

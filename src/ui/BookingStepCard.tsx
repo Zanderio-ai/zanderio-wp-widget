@@ -15,7 +15,28 @@ import { useState } from "react";
 import { css } from "@emotion/react";
 import { tokens } from "@/config/tokens";
 import { panel } from "@/artifacts/shell";
-import type { BookingInterrupt, BookingResume } from "@/core/chat-types";
+import type { BookingInterrupt, BookingOption, BookingResume } from "@/core/chat-types";
+
+interface SlotDayGroup {
+  dateLabel: string;
+  slots: BookingOption[];
+}
+
+function groupSlotsByDay(options: BookingOption[]): SlotDayGroup[] {
+  const groups: SlotDayGroup[] = [];
+  const byDate = new Map<string, SlotDayGroup>();
+  for (const opt of options) {
+    const dateLabel = opt.date_label ?? "";
+    let group = byDate.get(dateLabel);
+    if (!group) {
+      group = { dateLabel, slots: [] };
+      byDate.set(dateLabel, group);
+      groups.push(group);
+    }
+    group.slots.push(opt);
+  }
+  return groups;
+}
 
 interface BookingStepCardProps {
   interrupt: unknown;
@@ -83,6 +104,48 @@ const radio = (selected: boolean, brandColor: string) => css`
   border: 2px solid ${selected ? brandColor : tokens.color.grey[300]};
   background: ${selected ? brandColor : "transparent"};
   box-shadow: ${selected ? `inset 0 0 0 3px ${tokens.color.bg}` : "none"};
+`;
+
+const dayTabRow = css`
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+`;
+
+const dayTab = (selected: boolean, brandColor: string) => css`
+  flex-shrink: 0;
+  border: 1px solid ${selected ? brandColor : tokens.color.border};
+  background: ${selected ? `${brandColor}0F` : tokens.color.bg};
+  border-radius: ${tokens.radius.lg};
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ${tokens.font.family};
+  color: ${tokens.color.text};
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+const slotGrid = css`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 4px;
+`;
+
+const slotChip = (selected: boolean, brandColor: string) => css`
+  border: 1px solid ${selected ? brandColor : tokens.color.border};
+  background: ${selected ? `${brandColor}0F` : tokens.color.bg};
+  border-radius: ${tokens.radius.lg};
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ${tokens.font.family};
+  color: ${tokens.color.text};
+  cursor: pointer;
+  text-align: center;
 `;
 
 const optionMeta = css`
@@ -202,6 +265,9 @@ function BookingStepBody({
   const [form, setForm] = useState({ name: "", email: "", location: "" });
 
   const { phase, options = [] } = payload;
+  const slotDayGroups = phase === "select_slot" ? groupSlotsByDay(options) : [];
+  const [activeDay, setActiveDay] = useState(slotDayGroups[0]?.dateLabel ?? "");
+  const activeDaySlots = slotDayGroups.find((group) => group.dateLabel === activeDay)?.slots ?? [];
 
   const needsSelection =
     phase === "select_event_type" || phase === "select_location" || phase === "select_slot";
@@ -250,18 +316,36 @@ function BookingStepBody({
       )}
 
       {phase === "select_slot" && (
-        <div css={optionList}>
-          {options.map((opt, i) => {
-            const value = opt.start_time ?? String(i);
-            const active = selected === value;
-            return (
-              <button key={value} type="button" css={optionRow(active, brandColor)} onClick={() => setSelected(value)}>
-                <span css={radio(active, brandColor)} />
-                {String(opt.label ?? opt.start_time ?? `Slot ${i + 1}`)}
+        <>
+          <div css={dayTabRow}>
+            {slotDayGroups.map((group) => (
+              <button
+                key={group.dateLabel}
+                type="button"
+                css={dayTab(activeDay === group.dateLabel, brandColor)}
+                onClick={() => setActiveDay(group.dateLabel)}
+              >
+                {group.dateLabel}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+          <div css={slotGrid}>
+            {activeDaySlots.map((opt, i) => {
+              const value = opt.start_time ?? String(i);
+              const active = selected === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  css={slotChip(active, brandColor)}
+                  onClick={() => setSelected(value)}
+                >
+                  {String(opt.time_label ?? opt.label ?? opt.start_time ?? `Slot ${i + 1}`)}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {phase === "select_location" && (
