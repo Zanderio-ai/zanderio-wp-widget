@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 7.0
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,10 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.6.0 =
+* Redesigned the appointment time picker into day tabs with a time-chip grid, so shoppers can scan and pick a slot faster.
+* Booking now asks for any required custom questions the event type needs, right in the same form as name/email.
 
 = 1.5.0 =
 * The assistant now suggests relevant follow-up questions after answering, so shoppers can keep the conversation going with a single tap.

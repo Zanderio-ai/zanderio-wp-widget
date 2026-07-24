@@ -1,6 +1,6 @@
 {
   "name": "zanderio-wp-widget",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": false,
   "type": "module",
   "license": "GPL-2.0-or-later",
@@ -13,12 +13,10 @@
     "dev": "vite",
     "build:wordpress": "WIDGET_TARGET=wordpress vite build",
     "test": "vitest run",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.210",
-    "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "ai": "^6.0.208",

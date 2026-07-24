@@ -13,7 +13,7 @@
  *   - `inactivity_has_messages` — IDLE: the shopper chatted, then went
  *     quiet; resets on any page activity.
  *   - `booking` — DWELL, armed only while the chat is CLOSED with an
- *     abandoned booking in the conversation (link shown / flow paused,
+ *     abandoned booking in the conversation (flow paused,
  *     not confirmed). Its delay is shorter than has-messages so it wins
  *     the race: "finish your booking?" first, generic "anything else?"
  *     later.
