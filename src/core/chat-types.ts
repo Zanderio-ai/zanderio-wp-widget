@@ -56,6 +56,14 @@ export interface BookingOption {
   requires_input?: boolean;
 }
 
+export interface BookingQuestion {
+  id: string;
+  name: string;
+  type: string;
+  answer_choices?: string[];
+  include_other?: boolean;
+}
+
 export interface BookingInterrupt {
   phase: BookingPhase;
   provider: string;
@@ -68,6 +76,7 @@ export interface BookingInterrupt {
   contact?: { name: string; email: string } | null;
   location?: BookingOption | null;
   notice?: string | null;
+  questions?: BookingQuestion[];
 }
 
 /** Sent back via `sendMessage({ text: "" }, { body: { resume } })`. */

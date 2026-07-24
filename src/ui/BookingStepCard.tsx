@@ -15,7 +15,7 @@ import { useState } from "react";
 import { css } from "@emotion/react";
 import { tokens } from "@/config/tokens";
 import { panel } from "@/artifacts/shell";
-import type { BookingInterrupt, BookingOption, BookingResume } from "@/core/chat-types";
+import type { BookingInterrupt, BookingOption, BookingQuestion, BookingResume } from "@/core/chat-types";
 
 interface SlotDayGroup {
   dateLabel: string;
@@ -182,6 +182,19 @@ const input = css`
   }
 `;
 
+const questionLabel = css`
+  display: block;
+  font-size: 12px;
+  color: ${tokens.color.textSecondary};
+  margin-bottom: 6px;
+`;
+
+const chipRow = css`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
 const fieldGroup = css`
   display: flex;
   flex-direction: column;
@@ -263,11 +276,34 @@ function BookingStepBody({
 }) {
   const [selected, setSelected] = useState("");
   const [form, setForm] = useState({ name: "", email: "", location: "" });
+  const [choiceAnswers, setChoiceAnswers] = useState<Record<string, string | string[]>>({});
+  const [otherActive, setOtherActive] = useState<Record<string, boolean>>({});
+  const [otherText, setOtherText] = useState<Record<string, string>>({});
 
   const { phase, options = [] } = payload;
+  const questions = payload.questions ?? [];
   const slotDayGroups = phase === "select_slot" ? groupSlotsByDay(options) : [];
   const [activeDay, setActiveDay] = useState(slotDayGroups[0]?.dateLabel ?? "");
   const activeDaySlots = slotDayGroups.find((group) => group.dateLabel === activeDay)?.slots ?? [];
+
+  function selectChoice(question: BookingQuestion, choice: string) {
+    setChoiceAnswers((prev) => {
+      if (question.type !== "multi_select") return { ...prev, [question.id]: choice };
+      const current = Array.isArray(prev[question.id]) ? (prev[question.id] as string[]) : [];
+      const next = current.includes(choice) ? current.filter((v) => v !== choice) : [...current, choice];
+      return { ...prev, [question.id]: next };
+    });
+  }
+
+  function answerFor(question: BookingQuestion): string {
+    const choice = choiceAnswers[question.id];
+    const other = otherActive[question.id] ? (otherText[question.id] ?? "").trim() : "";
+    if (question.type === "multi_select") {
+      const chosen = Array.isArray(choice) ? choice : [];
+      return [...chosen, ...(other ? [other] : [])].join(", ");
+    }
+    return other || (typeof choice === "string" ? choice : "");
+  }
 
   const needsSelection =
     phase === "select_event_type" || phase === "select_location" || phase === "select_slot";
@@ -276,7 +312,8 @@ function BookingStepBody({
     (phase === "collect_info" &&
       (!form.name.trim() ||
         !form.email.trim() ||
-        (payload.location?.requires_input && !form.location.trim())));
+        (payload.location?.requires_input && !form.location.trim()) ||
+        questions.some((q) => !answerFor(q).trim())));
   const showBack = phase !== "select_event_type";
 
   const confirm = () => {
@@ -287,8 +324,10 @@ function BookingStepBody({
       });
     else if (phase === "select_location") onRespond({ location_id: selected });
     else if (phase === "select_slot") onRespond({ start_time: selected });
-    else if (phase === "collect_info") onRespond({ ...form });
-    else onRespond({ confirm: true });
+    else if (phase === "collect_info") {
+      const answers = Object.fromEntries(questions.map((q) => [q.id, answerFor(q)]));
+      onRespond({ ...form, answers });
+    } else onRespond({ confirm: true });
   };
 
   return (
@@ -403,6 +442,60 @@ function BookingStepBody({
             />
             </div>
           )}
+          {questions.map((q) => {
+            const hasChips = q.type === "single_select" || q.type === "multi_select";
+            if (!hasChips) {
+              return (
+                <div key={q.id}>
+                  <label css={fieldLabel}>{q.name}</label>
+                  <input
+                    css={input}
+                    value={typeof choiceAnswers[q.id] === "string" ? (choiceAnswers[q.id] as string) : ""}
+                    onChange={(e) => setChoiceAnswers((p) => ({ ...p, [q.id]: e.target.value }))}
+                  />
+                </div>
+              );
+            }
+            const activeSet = new Set(
+              q.type === "multi_select"
+                ? (Array.isArray(choiceAnswers[q.id]) ? (choiceAnswers[q.id] as string[]) : [])
+                : [choiceAnswers[q.id]].filter((v): v is string => typeof v === "string"),
+            );
+            return (
+              <div key={q.id}>
+                <label css={questionLabel}>{q.name}</label>
+                <div css={chipRow}>
+                  {(q.answer_choices ?? []).map((choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      css={dayTab(activeSet.has(choice), brandColor)}
+                      onClick={() => selectChoice(q, choice)}
+                    >
+                      {choice}
+                    </button>
+                  ))}
+                  {q.include_other && (
+                    <button
+                      type="button"
+                      css={dayTab(!!otherActive[q.id], brandColor)}
+                      onClick={() => setOtherActive((p) => ({ ...p, [q.id]: !p[q.id] }))}
+                    >
+                      Other
+                    </button>
+                  )}
+                </div>
+                {otherActive[q.id] && (
+                  <input
+                    css={[input, css`margin-top: 6px;`]}
+                    placeholder="Your answer"
+                    value={otherText[q.id] ?? ""}
+                    onChange={(e) => setOtherText((p) => ({ ...p, [q.id]: e.target.value }))}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
