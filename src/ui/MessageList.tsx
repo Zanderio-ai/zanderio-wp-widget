@@ -69,6 +69,19 @@ function hasRenderableContent(message: ChatUIMessage): boolean {
   );
 }
 
+// A user message sent purely to resume an interrupt (booking's event-type /
+// location / slot selections) carries `text: ""` — real for the graph, but
+// nothing a shopper should see as an empty bubble in the transcript.
+function isVisibleUserMessage(message: ChatUIMessage): boolean {
+  if (message.role !== "user") return true;
+  const text = message.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("")
+    .trim();
+  return text.length > 0;
+}
+
 export function MessageList({ config, chat, brandColor, errorState, onStartNewChat }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +90,7 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
   }, [chat.messages, chat.isStreaming]);
 
   const visible = chat.messages.filter(
-    (m) => m.role === "user" || hasRenderableContent(m),
+    (m) => isVisibleUserMessage(m) && (m.role === "user" || hasRenderableContent(m)),
   );
 
   return (
