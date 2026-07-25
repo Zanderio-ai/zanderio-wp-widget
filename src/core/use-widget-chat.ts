@@ -24,6 +24,10 @@ function isInterruptPart(part: ChatUIMessage["parts"][number]) {
   return part.type === "data-interrupt";
 }
 
+function isStatusPart(part: ChatUIMessage["parts"][number]) {
+  return part.type === "data-status";
+}
+
 export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isClosed, setIsClosed] = useState(false);
@@ -123,6 +127,20 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     return part && "data" in part ? part.data : null;
   }, [messages]);
 
+  const isStreaming = status === "submitted" || status === "streaming";
+
+  // Latest "what's happening" status — transient, only meaningful while a
+  // run is actually in flight; the AI service never persists these, so a
+  // reloaded conversation never has one.
+  const statusLabel = useMemo(() => {
+    if (!isStreaming) return null;
+    const assistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!assistant) return null;
+    const statusParts = assistant.parts.filter(isStatusPart);
+    const latest = statusParts[statusParts.length - 1];
+    return latest && "data" in latest && typeof latest.data === "string" ? latest.data : null;
+  }, [messages, isStreaming]);
+
   const send = useCallback(
     (text: string) => {
       if (!conversationId || !text.trim()) return;
@@ -139,14 +157,13 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     [conversationId, sendMessage],
   );
 
-  const isStreaming = status === "submitted" || status === "streaming";
-
   return {
     messages,
     isStreaming,
     isLoading: isHistoryLoading || isStreaming,
     isClosed,
     error,
+    statusLabel,
     interrupt,
     send,
     respondToInterrupt,

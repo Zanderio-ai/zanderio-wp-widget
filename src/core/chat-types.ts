@@ -24,6 +24,8 @@ export type ChatDataTypes = {
   artifact: Artifact;
   suggestions: string[];
   interrupt: { id: string | null; value: unknown };
+  /** Transient "what's happening" label — never persisted, live-stream only. */
+  status: string;
 };
 
 export type ChatUIMessage = UIMessage<never, ChatDataTypes>;

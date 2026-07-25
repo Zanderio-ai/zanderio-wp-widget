@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 7.0
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.7.0 =
+* The assistant now shows what it's doing while working — searching products, checking availability, confirming a booking — instead of a generic "thinking" indicator.
 
 = 1.6.0 =
 * Redesigned the appointment time picker into day tabs with a time-chip grid, so shoppers can scan and pick a slot faster.

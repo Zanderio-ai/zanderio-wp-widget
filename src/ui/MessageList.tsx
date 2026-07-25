@@ -179,7 +179,7 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
         </div>
       )}
 
-      {chat.isStreaming && <ThinkingIndicator brandColor={config.color} />}
+      {chat.isStreaming && <ThinkingIndicator brandColor={config.color} label={chat.statusLabel} />}
 
       {chat.isClosed && (
         <ConversationEndedScreen brandColor={config.color} onStartNewChat={onStartNewChat} />
