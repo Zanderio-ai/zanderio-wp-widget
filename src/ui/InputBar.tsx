@@ -3,7 +3,7 @@
  * @description Composer — textarea with mic + send/stop icons docked inside its right edge.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { css } from "@emotion/react";
 
 interface InputBarProps {
@@ -115,6 +115,15 @@ export function InputBar({
   const isControlled = externalValue !== undefined;
   const value = isControlled ? externalValue : internalValue;
   const setValue = isControlled ? (onValueChange ?? (() => {})) : setInternalValue;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Some host pages (WordPress sites with copy-protection / anti-inspect
+  // scripts in particular) interfere with the browser's default click→focus
+  // behavior for elements inside our shadow root, so a plain click can land
+  // without ever moving keyboard focus into the textarea. Focusing explicitly
+  // on mousedown sidesteps whatever the host page is doing instead of relying
+  // on the default action.
+  const focusField = () => textareaRef.current?.focus();
 
   const submit = () => {
     const text = value.trim();
@@ -132,8 +141,9 @@ export function InputBar({
 
   return (
     <div css={wrap}>
-      <div css={fieldPill(disabled)}>
+      <div css={fieldPill(disabled)} onMouseDown={focusField}>
         <textarea
+          ref={textareaRef}
           css={field(isMobile)}
           rows={1}
           placeholder={disabled ? "Conversation ended" : "Type a message…"}
