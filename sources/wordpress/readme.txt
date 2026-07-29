@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 7.0
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,10 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.7.2 =
+* Fixed the desktop/mobile widget position setting (e.g. "left") being ignored and always falling back to bottom-right.
+* Added the "Powered by Zanderio AI" attribution footer to the chat window.
 
 = 1.7.1 =
 * Fixed booking selections (event type, location, time) briefly showing as empty message bubbles in the chat.

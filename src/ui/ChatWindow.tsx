@@ -18,6 +18,7 @@ import { InputBar } from "./InputBar";
 import { VoiceInputButton } from "./VoiceInputButton";
 import { VoicePanel } from "./VoicePanel";
 import { VoiceErrorBanner } from "./VoiceErrorBanner";
+import { PoweredBy } from "./PoweredBy";
 import { useVoiceInput } from "@/core/use-voice-input";
 import { CartSheetProvider } from "@/artifacts/commerce/CartSheet";
 import { classifyWidgetError } from "@/core/error-classifier";
@@ -57,7 +58,12 @@ const backdrop = css`
   animation: z-fade-in 0.2s ease-out;
 `;
 
-const panel = (isMobile: boolean, isOpen: boolean, size: PanelSize) => {
+const panel = (
+  isMobile: boolean,
+  isOpen: boolean,
+  size: PanelSize,
+  position: WidgetConfig["desktopPosition"],
+) => {
   const modal = !isMobile && size === "modal";
   const expanded = !isMobile && size === "expanded";
   return css`
@@ -89,7 +95,8 @@ const panel = (isMobile: boolean, isOpen: boolean, size: PanelSize) => {
           `
         : css`
             bottom: 90px;
-            right: 20px;
+            /* Dock the panel on the same side as the launcher. */
+            ${position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
             width: ${expanded ? "min(560px, calc(100vw - 40px))" : "400px"};
             height: ${expanded ? "min(820px, calc(100vh - 120px))" : "600px"};
             max-height: calc(100vh - 120px);
@@ -158,7 +165,11 @@ export function ChatWindow({
       {showBackdrop && (
         <div css={backdrop} aria-hidden="true" onClick={() => setSize("default")} />
       )}
-      <div css={panel(isMobile, isOpen, size)} role="dialog" aria-label={`${config.name} chat`}>
+      <div
+        css={panel(isMobile, isOpen, size, config.desktopPosition)}
+        role="dialog"
+        aria-label={`${config.name} chat`}
+      >
         <CartSheetProvider>
           <ChatHeader
             config={config}
@@ -214,6 +225,7 @@ export function ChatWindow({
                 />
               </>
             ))}
+          <PoweredBy />
         </CartSheetProvider>
       </div>
     </>

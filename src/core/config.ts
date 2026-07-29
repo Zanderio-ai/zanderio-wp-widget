@@ -23,6 +23,19 @@ function num(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+/**
+ * Positions arrive in either of two shapes depending on how the appearance
+ * editor saved them: the full corner (`bottom-left`) or just the side
+ * (`left`). Accept both — the widget is always bottom-docked, so the side is
+ * the only meaningful part. Anything unrecognized falls back.
+ */
+function corner<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  if (typeof value !== "string") return fallback;
+  const side = value.trim().toLowerCase().replace(/_/g, "-");
+  const full = (side.startsWith("bottom-") ? side : `bottom-${side}`) as T;
+  return allowed.includes(full) ? full : fallback;
+}
+
 export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
   const c = (raw ?? {}) as Record<string, unknown>;
   const proactive = (c.proactive ?? {}) as Record<string, unknown>;
@@ -32,13 +45,12 @@ export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
     color: str(c.color, tokens.color.primary),
     logoUrl: typeof c.logoUrl === "string" ? c.logoUrl : null,
     welcomeMessage: str(c.welcomeMessage, "Hi there! How can I help?"),
-    desktopPosition: c.desktopPosition === "bottom-left" ? "bottom-left" : "bottom-right",
-    mobilePosition:
-      c.mobilePosition === "bottom-left"
-        ? "bottom-left"
-        : c.mobilePosition === "bottom-right"
-          ? "bottom-right"
-          : "bottom-center",
+    desktopPosition: corner(c.desktopPosition, ["bottom-right", "bottom-left"], "bottom-right"),
+    mobilePosition: corner(
+      c.mobilePosition,
+      ["bottom-right", "bottom-left", "bottom-center"],
+      "bottom-center",
+    ),
     buttonType: typeof c.buttonType === "string" ? c.buttonType : null,
     proactive: {
       enabled: bool(proactive.enabled, false),
