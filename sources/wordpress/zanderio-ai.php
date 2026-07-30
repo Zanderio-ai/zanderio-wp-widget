@@ -3,7 +3,7 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.7.3
+ * Version:      1.7.4
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
@@ -39,7 +39,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.7.3' );
+define( 'ZANDERIO_VERSION',      '1.7.4' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
@@ -87,7 +87,7 @@ function zanderio_sync_store_identity() {
     }
 
     $response = wp_remote_post(
-        ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+        ZANDERIO_API_URL . '/v1/webhooks/wordpress/compliance',
         array(
             'body'    => wp_json_encode( array(
                 'event'                => 'plugin.health',
@@ -495,7 +495,7 @@ function zanderio_do_health_check() {
     );
 
     $response = wp_remote_post(
-        ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+        ZANDERIO_API_URL . '/v1/webhooks/wordpress/compliance',
         array(
             'body'    => wp_json_encode( array_merge( $payload, array(
                 'event' => 'plugin.health',
@@ -544,7 +544,7 @@ function zanderio_deactivate() {
     }
 
     wp_remote_post(
-        ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+        ZANDERIO_API_URL . '/v1/webhooks/wordpress/compliance',
         array(
             'body'    => wp_json_encode( array(
                 'event'     => 'plugin.deactivated',
@@ -580,7 +580,7 @@ function zanderio_uninstall() {
 
     if ( $secret ) {
         wp_remote_post(
-            ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+            ZANDERIO_API_URL . '/v1/webhooks/wordpress/compliance',
             array(
                 'body'    => wp_json_encode( array(
                     'event'     => 'plugin.uninstalled',
@@ -633,7 +633,7 @@ function zanderio_send_heartbeat() {
     }
 
     wp_remote_post(
-        ZANDERIO_API_URL . '/webhooks/wordpress/compliance',
+        ZANDERIO_API_URL . '/v1/webhooks/wordpress/compliance',
         array(
             'body'    => wp_json_encode( array(
                 'event'                => 'plugin.health',

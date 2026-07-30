@@ -3,7 +3,7 @@ Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
 Requires at least: 5.6
 Tested up to: 7.0
-Stable tag: 1.7.3
+Stable tag: 1.7.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -111,6 +111,9 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.7.4 =
+* Fixed the daily health heartbeat and plugin lifecycle notifications (activation/deactivation/uninstall) hitting a stale backend URL missing the API version prefix, which caused them to fail silently.
 
 = 1.7.3 =
 * Fixed the chat input not receiving keyboard focus on click on some sites, which prevented typing a message.
