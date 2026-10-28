@@ -15,7 +15,7 @@
  * confirmation line) clears the context — nothing left to nudge about.
  */
 
-import type { ChatUIMessage } from "@/core/chat-types";
+import type { ChatUIMessage } from "@zanderio/core/chat";
 
 const BOOKING_CONFIRMED_RE = /you're booked for/i;
 

@@ -31,6 +31,12 @@ function init(): void {
     host.id = HOST_ID;
     document.body.appendChild(host);
   }
+  // The host is `:empty` in the light DOM — all UI lives in the shadow root, which shields what's inside but not the host element itself.
+  // So theme rules that hide empty boxes (`div:empty{display:none}`, or less often via visibility/opacity) would collapse the whole widget.
+  // Pin all three inline with !important — inline !important beats any theme stylesheet rule — so the widget can't be hidden on any store.
+  host.style.setProperty("display", "block", "important");
+  host.style.setProperty("visibility", "visible", "important");
+  host.style.setProperty("opacity", "1", "important");
   if (host.shadowRoot) return; // already mounted
 
   const shadow = host.attachShadow({ mode: "open" });

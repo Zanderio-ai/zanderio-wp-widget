@@ -6,22 +6,38 @@
 
 import { useEffect, useRef } from "react";
 import { css } from "@emotion/react";
-import { MessageContent } from "./MessageContent";
-import { BookingStepCard } from "./BookingStepCard";
+import {
+  InterruptCard,
+  MessageContent,
+  VoiceMessageBubble,
+  VoiceReplyFailed,
+} from "@zanderio/core/chat-ui";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { StatusBanner } from "./StatusBanner";
 import { ConversationEndedScreen } from "./ConversationEndedScreen";
-import { ArtifactCard } from "@/artifacts/ArtifactCard";
+import { ImageMessageBubble } from "./ImageMessageBubble";
+import { ArtifactCard } from "@zanderio/core/artifacts";
 import type { WidgetConfig } from "@/config/types";
-import type { ChatUIMessage } from "@/core/chat-types";
-import type { WidgetErrorState } from "@/core/error-classifier";
+import {
+  followUpSuggestions,
+  messageArtifacts,
+  messageImage,
+  messageVoice,
+  visibleMessages,
+  voiceReplyProgress,
+} from "@zanderio/core/chat";
+import type { ChatErrorState, ChatUIMessage } from "@zanderio/core/chat";
 import type { WidgetChat } from "./ChatWindow";
+
+function hasText(message: ChatUIMessage): boolean {
+  return message.parts.some((p) => p.type === "text" && p.text.trim().length > 0);
+}
 
 interface MessageListProps {
   config: WidgetConfig;
   chat: WidgetChat;
   brandColor: string;
-  errorState: WidgetErrorState | null;
+  errorState: ChatErrorState | null;
   onStartNewChat: () => void;
 }
 
@@ -58,39 +74,30 @@ const bubble = (isBot: boolean, brandColor: string) => css`
   font-size: 14px;
 `;
 
-
-function hasRenderableContent(message: ChatUIMessage): boolean {
-  return message.parts.some(
-    (p) =>
-      (p.type === "text" && p.text.trim().length > 0) ||
-      p.type === "file" ||
-      p.type === "data-artifact" ||
-      p.type === "data-suggestions",
-  );
-}
-
-// A user message sent purely to resume an interrupt (booking's event-type /
-// location / slot selections) carries `text: ""` — real for the graph, but
-// nothing a shopper should see as an empty bubble in the transcript.
-function isVisibleUserMessage(message: ChatUIMessage): boolean {
-  if (message.role !== "user") return true;
-  const text = message.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("")
-    .trim();
-  return text.length > 0;
-}
-
-export function MessageList({ config, chat, brandColor, errorState, onStartNewChat }: MessageListProps) {
+export function MessageList({
+  config,
+  chat,
+  brandColor,
+  errorState,
+  onStartNewChat,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chat.messages, chat.isStreaming]);
+  }, [chat.messages, chat.isStreaming, chat.voiceReplyPending, chat.voiceReplyStatus]);
 
-  const visible = chat.messages.filter(
-    (m) => isVisibleUserMessage(m) && (m.role === "user" || hasRenderableContent(m)),
+  // Which messages show, what each offers next, and how voice replies are
+  // waited on are shared rules (@zanderio/core/chat); this file only draws them.
+  const visible = visibleMessages(chat.messages);
+
+  // Voice-to-voice answers a voice message with a voice message, never with
+  // text: while one is on its way the written reply stays hidden, and if it
+  // cannot be created the visitor gets a retry, not the text.
+  const { awaitingId: awaitingVoiceId, onItsWay: voiceOnItsWay } = voiceReplyProgress(
+    chat.messages,
+    chat.voiceReplyPending,
+    chat.voiceReplyStatus,
   );
 
   return (
@@ -104,23 +111,36 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
 
       {visible.map((message) => {
         const isBot = message.role === "assistant";
-        const artifacts = message.parts.filter(
-          (p): p is Extract<typeof p, { type: "data-artifact" }> => p.type === "data-artifact",
-        );
-        const hasExclusiveContinuation =
-          message.parts.some((part) => part.type === "data-interrupt") ||
-          artifacts.some(({ data }) => ["action", "booking"].includes(data.type));
-        const suggestions = hasExclusiveContinuation
-          ? []
-          : message.parts.flatMap((part) =>
-              part.type === "data-suggestions" ? part.data : [],
-            );
+        const artifacts = messageArtifacts(message);
+        const suggestions = followUpSuggestions(message);
+        const audio = messageVoice(message);
+        const image = messageImage(message);
+        const voiceStatus = chat.voiceReplyStatus[message.id];
+        const awaitingVoice = message.id === awaitingVoiceId || voiceStatus === "pending";
 
         return (
           <div key={message.id} css={row(isBot)}>
-            <div css={bubble(isBot, config.color)}>
-              <MessageContent message={message} />
-            </div>
+            {image && <ImageMessageBubble image={image} token={chat.token} />}
+            {audio ? (
+              <VoiceMessageBubble audio={audio} isBot={isBot} brandColor={config.color} />
+            ) : voiceStatus === "failed" ? (
+              <VoiceReplyFailed
+                brandColor={config.color}
+                onRetry={() => chat.retryVoiceReply(message.id)}
+              />
+            ) : awaitingVoice || (image && !hasText(message)) ? null : (
+              <div
+                css={[
+                  bubble(isBot, config.color),
+                  image &&
+                    css`
+                      margin-top: 6px;
+                    `,
+                ]}
+              >
+                <MessageContent message={message} />
+              </div>
+            )}
             {isBot && artifacts.length > 0 && (
               <div
                 css={css`
@@ -131,8 +151,8 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
                   gap: 10px;
                 `}
               >
-                {artifacts.map((a, i) => (
-                  <ArtifactCard key={i} artifact={a.data} />
+                {artifacts.map((artifact, i) => (
+                  <ArtifactCard key={i} artifact={artifact} />
                 ))}
               </div>
             )}
@@ -162,7 +182,9 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
                       font-weight: 500;
                       line-height: 1.25;
                       cursor: pointer;
-                      transition: background-color 150ms ease, border-color 150ms ease;
+                      transition:
+                        background-color 150ms ease,
+                        border-color 150ms ease;
                       &:hover:not(:disabled) {
                         background: color-mix(in srgb, ${brandColor} 10%, transparent);
                         border-color: color-mix(in srgb, ${brandColor} 45%, transparent);
@@ -184,15 +206,22 @@ export function MessageList({ config, chat, brandColor, errorState, onStartNewCh
 
       {chat.interrupt && !chat.isStreaming && (
         <div css={row(true)}>
-          <BookingStepCard
+          <InterruptCard
             interrupt={chat.interrupt}
             brandColor={brandColor}
+            brandName={config.name}
             onRespond={chat.respondToInterrupt}
           />
         </div>
       )}
 
-      {chat.isStreaming && <ThinkingIndicator brandColor={config.color} label={chat.statusLabel} />}
+      {chat.isStreaming ? (
+        <ThinkingIndicator brandColor={config.color} label={chat.statusLabel} />
+      ) : (
+        voiceOnItsWay && (
+          <ThinkingIndicator brandColor={config.color} label="Recording a voice message…" />
+        )
+      )}
 
       {chat.isClosed && (
         <ConversationEndedScreen brandColor={config.color} onStartNewChat={onStartNewChat} />

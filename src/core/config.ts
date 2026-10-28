@@ -24,16 +24,18 @@ function num(value: unknown, fallback: number): number {
 }
 
 /**
- * Positions arrive in either of two shapes depending on how the appearance
- * editor saved them: the full corner (`bottom-left`) or just the side
- * (`left`). Accept both — the widget is always bottom-docked, so the side is
- * the only meaningful part. Anything unrecognized falls back.
+ * The widget docks to one side of the screen — the same side on desktop and
+ * mobile. Anything other than "left" falls back to the default, "right".
  */
-function corner<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
-  if (typeof value !== "string") return fallback;
-  const side = value.trim().toLowerCase().replace(/_/g, "-");
-  const full = (side.startsWith("bottom-") ? side : `bottom-${side}`) as T;
-  return allowed.includes(full) ? full : fallback;
+function side(value: unknown): WidgetConfig["position"] {
+  return typeof value === "string" && value.trim().toLowerCase() === "left" ? "left" : "right";
+}
+
+// A backend that predates voice modes sends no `voiceAssistantMode`; its
+// enabled widgets are voice-to-text, which is all they could be.
+function voiceMode(c: Record<string, unknown>): WidgetConfig["voiceMode"] {
+  if (!bool(c.voiceAssistantEnabled, false)) return "off";
+  return c.voiceAssistantMode === "voice_to_voice" ? "voice_to_voice" : "voice_to_text";
 }
 
 export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
@@ -45,13 +47,7 @@ export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
     color: str(c.color, tokens.color.primary),
     logoUrl: typeof c.logoUrl === "string" ? c.logoUrl : null,
     welcomeMessage: str(c.welcomeMessage, "Hi there! How can I help?"),
-    desktopPosition: corner(c.desktopPosition, ["bottom-right", "bottom-left"], "bottom-right"),
-    mobilePosition: corner(
-      c.mobilePosition,
-      ["bottom-right", "bottom-left", "bottom-center"],
-      "bottom-center",
-    ),
-    buttonType: typeof c.buttonType === "string" ? c.buttonType : null,
+    position: side(c.position),
     proactive: {
       enabled: bool(proactive.enabled, false),
       message: str(proactive.message, "Need help finding anything?"),
@@ -65,5 +61,7 @@ export function normalizeWidgetConfig(raw: unknown): WidgetConfig {
     },
     autoPopup: bool(c.autoPopup, false),
     voiceAssistantEnabled: bool(c.voiceAssistantEnabled, false),
+    voiceMode: voiceMode(c),
+    imageSearchEnabled: bool(c.imageSearchEnabled, false),
   };
 }

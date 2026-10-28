@@ -1,9 +1,9 @@
 === Zanderio AI ===
 Contributors: zanderio
 Tags: chat, ai, widget, sales agent, woocommerce
-Requires at least: 5.6
+Requires at least: 4.7
 Tested up to: 7.0
-Stable tag: 1.7.4
+Stable tag: 1.8.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -17,13 +17,15 @@ answers customer questions in real time using your live product and order data.
 
 The chat widget is bundled directly inside the plugin — no external scripts are
 loaded or executed at runtime.  All communication with the Zanderio service uses
-your store's existing Application Password credentials over HTTPS.
+plain HTTPS.  Connecting is one click on activation with no Application Password
+step, so it works on every supported WordPress version.  WooCommerce stores are
+synced using a read-only REST API key the plugin creates automatically.
 
 Features:
 
 * One-click activation — auto-handshake with Zanderio backend
-* Application Password authentication (no manual API keys)
-* WooCommerce product/order sync via webhooks
+* No Application Password or manual API keys needed
+* WooCommerce product/order sync via a read-only REST key and webhooks
 * Widget colour customisation from Settings → Zanderio
 * Daily health heartbeat
 * Clean uninstall — all data removed from both sides
@@ -40,9 +42,9 @@ Features:
    **Plugins → Add New → Upload Plugin**
 5. Click **Choose File**, select the downloaded ZIP file, and then click **Install Now**.
 6. Once the plugin is installed, click **Activate Plugin**.
-7. After activation, you will be redirected to `app.zanderio.ai` to authorize and connect your website with Zanderio.
-8. Complete the authorization process to finish the setup.
-9. Once connected, Zanderio AI will be ready to use on your WordPress website.
+7. After activation, the plugin connects to Zanderio automatically and opens the **Settings → Zanderio** page in your dashboard.
+8. The chat widget goes live on your website right away — no separate authorization step is needed.
+9. Optionally, customise the widget's colour and appearance from the **Settings → Zanderio** page.
 
 == External Services ==
 
@@ -74,6 +76,9 @@ to bootstrap the widget.
   identifiable visitor data is required for this step; an anonymous visitor
   id is generated locally and sent along so return visits resume the same
   conversation.
+* **`POST /v1/widget/nudges/fire`** — only when your store uses proactive
+  nudges: asks whether a prompt bubble may be shown, sending the store id,
+  the anonymous visitor id, which nudge it is, and the current conversation id.
 
 = agent.zanderio.ai (AI Service — chat) =
 
@@ -86,6 +91,17 @@ token issued by the bootstrap call above.
 * **`GET /v1/threads/{id}/state`** — restores the visitor's prior messages
   when the widget reopens after a page reload, so conversation history isn't
   lost.
+* **`POST /v1/speech/transcriptions`, `POST /v1/speech/voice-messages`** —
+  only when voice is turned on for your store and the visitor taps the
+  microphone: uploads their recording to be transcribed, or kept as a voice
+  message.
+* **`POST /v1/speech/voice-replies`, `GET /v1/speech/audio/{id}`** — only in
+  voice-message mode: has the assistant's reply spoken aloud, and fetches
+  earlier voice messages to replay them.
+* **`POST /v1/threads/{id}/images`, `GET /v1/images/{id}`** — only when photo
+  search is turned on for your store and the visitor chooses to send a
+  product photo: uploads the photo (shrunk in the browser first) to find
+  matching products, and fetches it again to show it in the conversation.
 
 **Links:**
 
@@ -102,8 +118,8 @@ human-readable source code is available on GitHub:
 To build `loader.js` from source:
 
 1. Clone the repository: `git clone https://github.com/Zanderio-ai/zanderio-wp-widget.git`
-2. Install dependencies: `npm install`
-3. Build for WordPress: `npm run build:wordpress:prod`
+2. Install dependencies: `npm ci`
+3. Build for WordPress: `WIDGET_ENV=prod npm run build:wordpress`
 
 The compiled file is output to `sources/wordpress/assets/loader.js`.
 
@@ -111,6 +127,17 @@ Build toolchain: [Vite](https://vitejs.dev/) + [React](https://react.dev/) +
 [Terser](https://terser.org/) (minifier).
 
 == Changelog ==
+
+= 1.8.0 =
+* New: voice messages. When voice-message mode is on for your store, shoppers can record a voice message and hear the assistant answer aloud, shown as waveform bubbles with the time each was sent.
+* New: photo search. When it's on for your store, shoppers can send a photo of a product they're looking for and get matching products, labelled Exact match, Looks similar or Related.
+* New: the assistant can now collect a visitor's contact details (name, email, and more) right inside the chat as a simple form card, instead of asking for them one line at a time.
+* Widget position now applies to every screen size. Choose Left or Right once and the chat launcher, window, and nudges all dock to that side on desktop and mobile alike — previously mobile always stayed on the right regardless of the setting.
+* Fixed: the plugin now installs and connects on older WordPress sites. Setup no longer sends you to the Application Passwords page (which only exists on WordPress 5.6+ and left older sites stuck on a broken page mid-install); the connection is completed directly. The minimum supported WordPress version is now 4.7.
+* Fixed: after installing, you are now taken to the correct Zanderio settings page, and the post-install confirmation no longer blocks the rest of the admin page from loading.
+* Fixed a "compliance/contact" link that pointed to the wrong address.
+* Fixed the chat bubble occasionally being hidden on themes that collapse empty containers.
+* Minor styling fixes to form controls and disabled text.
 
 = 1.7.4 =
 * Fixed the daily health heartbeat and plugin lifecycle notifications (activation/deactivation/uninstall) hitting a stale backend URL missing the API version prefix, which caused them to fail silently.

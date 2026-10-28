@@ -3,21 +3,22 @@
  * Plugin Name:  Zanderio AI
  * Plugin URI:   https://zanderio.ai/integrations/wordpress
  * Description:  Connect your WordPress / WooCommerce store to Zanderio's AI-powered Sales Agent.
- * Version:      1.7.4
+ * Version:      1.8.0
  * Author:       Zanderio
  * Author URI:   https://zanderio.ai
  * License:      GPL-2.0-or-later
  * License URI:  https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:  zanderio-ai
  * Requires PHP: 7.4
- * Requires at least: 5.6
+ * Requires at least: 4.7
  *
  * ── How it works ──
  *
  * 1. Activation:
- *    Plugin sends a handshake to the Zanderio backend, receives an
- *    Application Password authorization URL, then redirects the admin
- *    to their WP authorize-application.php page to approve access.
+ *    Plugin sends a handshake to the Zanderio backend and receives the widget
+ *    key, so the chat widget renders immediately. On WooCommerce stores it
+ *    also mints a read-only REST key and hands it over for catalog sync.
+ *    No Application Password step, so this works on every supported version.
  *
  * 2. Normal operation:
  *    WooCommerce webhooks handle real-time product/order sync.
@@ -39,10 +40,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Constants
  * ══════════════════════════════════════════════════════════════════════════ */
 
-define( 'ZANDERIO_VERSION',      '1.7.4' );
+define( 'ZANDERIO_VERSION',      '1.8.0' );
 define( 'ZANDERIO_PLUGIN_FILE',  __FILE__ );
 define( 'ZANDERIO_PLUGIN_DIR',   plugin_dir_path( __FILE__ ) );
 define( 'ZANDERIO_PLUGIN_URL',   plugin_dir_url( __FILE__ ) );
+
+/* Label on the WooCommerce REST key we mint. Used to find and replace our
+   own key without touching any other key the merchant created. */
+define( 'ZANDERIO_WC_KEY_LABEL', 'Zanderio AI (read-only)' );
 
 /**
  * ⚠️  IMPORTANT: Update this to your actual Zanderio backend URL.
@@ -182,11 +187,81 @@ function zanderio_handle_bind( $request ) {
 /* ══════════════════════════════════════════════════════════════════════════
  * Activation hook
  *
- * 1. POST /v1/stores/connection/wordpress/install  →  get authorize_url + secret
- * 2. Store the plugin_secret in wp_options
- * 3. Set a transient flag so we redirect on next admin page load
+ * 1. POST /v1/stores/connection/wordpress/install  →  widget_key + plugin_secret
+ * 2. Store both in wp_options (the widget renders from this point on)
+ * 3. Set a transient flag so we land on the settings page next admin load
  * ══════════════════════════════════════════════════════════════════════════ */
 register_activation_hook( __FILE__, 'zanderio_activate' );
+
+/**
+ * Mint a read-only WooCommerce REST key for Zanderio.
+ *
+ * WooCommerce keys work on every WordPress version, unlike Application
+ * Passwords (5.6+), which is why they replace them as the data credential.
+ *
+ * Built from WooCommerce's public helpers and inserted directly, so the
+ * merchant sees no extra approval screen. `WC_Auth::create_keys()` is not used
+ * — it is protected/internal and not part of WooCommerce's public API.
+ *
+ * The plaintext pair is returned once and never readable again: only a hash of
+ * the consumer key is stored locally, exactly as WooCommerce itself does.
+ *
+ * Note the key is owned by a user row (`user_id`), so deleting that admin
+ * revokes it — the backend must handle a 401 by asking for a reconnect.
+ *
+ * @return array{consumer_key:string,consumer_secret:string}|null
+ */
+function zanderio_mint_woocommerce_key() {
+    if ( ! class_exists( 'WooCommerce' ) || ! function_exists( 'wc_rand_hash' ) ) {
+        return null;
+    }
+
+    global $wpdb;
+
+    $user_id = get_current_user_id();
+    if ( ! $user_id ) {
+        /* Activation can run without a current user (WP-CLI); fall back to any
+           administrator so the key has a valid owner. */
+        $admins  = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+        $user_id = ! empty( $admins ) ? (int) $admins[0] : 0;
+    }
+    if ( ! $user_id ) {
+        return null;
+    }
+
+    /* Only the hash of a consumer key is stored, so an existing key can never
+       be read back and handed over again — a re-activation has to mint a fresh
+       one. Drop our previous keys first so repeated activate/deactivate cycles
+       don't leave a trail of dead rows in the merchant's API-keys screen. */
+    $table = $wpdb->prefix . 'woocommerce_api_keys';
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- WooCommerce exposes no API for this.
+    $wpdb->delete( $table, array( 'description' => ZANDERIO_WC_KEY_LABEL ), array( '%s' ) );
+
+    $consumer_key    = 'ck_' . wc_rand_hash();
+    $consumer_secret = 'cs_' . wc_rand_hash();
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'woocommerce_api_keys',
+        array(
+            'user_id'         => $user_id,
+            'description'     => ZANDERIO_WC_KEY_LABEL,
+            'permissions'     => 'read',
+            'consumer_key'    => wc_api_hash( $consumer_key ),
+            'consumer_secret' => $consumer_secret,
+            'truncated_key'   => substr( $consumer_key, -7 ),
+        ),
+        array( '%d', '%s', '%s', '%s', '%s', '%s' )
+    );
+
+    if ( ! $inserted ) {
+        return null;
+    }
+
+    return array(
+        'consumer_key'    => $consumer_key,
+        'consumer_secret' => $consumer_secret,
+    );
+}
 
 function zanderio_activate() {
     /* Gather site metadata */
@@ -199,6 +274,15 @@ function zanderio_activate() {
         'plugin_version'       => ZANDERIO_VERSION,
         'nonce'                => wp_create_nonce( 'zanderio_handshake' ),
     );
+
+    /* WooCommerce stores hand over a read-only catalog key. Sites without
+       WooCommerce send nothing extra — their content is public, so the sync
+       reads it over /wp/v2 with no credential at all. */
+    $woo_key = zanderio_mint_woocommerce_key();
+    if ( $woo_key ) {
+        $payload['consumer_key']    = $woo_key['consumer_key'];
+        $payload['consumer_secret'] = $woo_key['consumer_secret'];
+    }
 
     $response = wp_remote_post(
         ZANDERIO_API_URL . '/v1/stores/connection/wordpress/install',
@@ -220,7 +304,10 @@ function zanderio_activate() {
     $code = wp_remote_retrieve_response_code( $response );
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-    if ( $code !== 200 || empty( $body['data']['authorize_url'] ) ) {
+    /* The widget key is what the install has to deliver — it is the sole
+       identity the embed needs. The authorize URL is no longer required (and
+       is unusable below WordPress 5.6), so it is not checked for here. */
+    if ( $code !== 200 || empty( $body['data']['widget_key'] ) ) {
         $msg = $body['message'] ?? 'Unknown error during handshake (HTTP ' . $code . ')';
         update_option( 'zanderio_activation_error', $msg );
         set_transient( 'zanderio_show_activation_error', true, 60 );
@@ -230,10 +317,25 @@ function zanderio_activate() {
     /* Store secret for lifecycle hooks */
     update_option( 'zanderio_plugin_secret', $body['data']['plugin_secret'] );
     update_option( 'zanderio_domain',        $body['data']['domain'] );
+
+    /* Stores the widget key — the widget renders from here on, with no
+       further approval step on any WordPress version. */
     zanderio_store_remote_identity( $body, true );
 
-    /* Store authorize URL for redirect */
-    set_transient( 'zanderio_authorize_url', $body['data']['authorize_url'], 600 );
+    /* Confirm the connection from the authenticated side.
+
+       The install handshake above is unauthenticated — the plugin has no
+       secret until the backend issues one in that very response — so a site
+       with no WooCommerce keys is left in a PENDING connection state there.
+       This authenticated heartbeat carries the per-store secret, which proves
+       the plugin is installed and holds it: that is the site-level connection
+       handshake, and the backend promotes a PENDING store to CONNECTED on it.
+
+       Sent fire-and-forget (blocking=false, inside zanderio_send_heartbeat) so
+       it does not add its timeout to the activation request — activation must
+       stay fast on slow hosts. If it does not land, the daily heartbeat is the
+       fallback. WooCommerce sites are already CONNECTED from the keys above. */
+    zanderio_send_heartbeat();
 
     /* Flag to trigger redirect on next admin page load */
     set_transient( 'zanderio_redirect_after_activate', true, 60 );
@@ -242,7 +344,7 @@ function zanderio_activate() {
 /* ══════════════════════════════════════════════════════════════════════════
  * Admin redirect after activation
  *
- * Redirects to the authorize-application.php page once, on the first
+ * Lands the merchant on the Zanderio settings page once, on the first
  * admin page load after activation.
  * ══════════════════════════════════════════════════════════════════════════ */
 add_action( 'admin_init', 'zanderio_maybe_redirect' );
@@ -290,13 +392,20 @@ function zanderio_maybe_redirect() {
         return;
     }
 
-    $authorize_url = get_transient( 'zanderio_authorize_url' );
-    if ( $authorize_url ) {
-        delete_transient( 'zanderio_authorize_url' );
-        add_filter( 'allowed_redirect_hosts', 'zanderio_allowed_redirect_hosts' );
-        wp_safe_redirect( $authorize_url );
-        exit;
-    }
+    /*
+     * The Application Password authorize page (/wp-admin/authorize-application.php)
+     * only exists on WordPress 5.6+. Redirecting there dropped every older site
+     * into a 404 inside its own dashboard, and the install ended there — no
+     * widget key, no widget.
+     *
+     * Nothing needs that page any more: the handshake already returned the
+     * widget key (so the widget renders) and, on WooCommerce sites, a consumer
+     * key (so the catalog syncs). Send the merchant to our settings screen
+     * instead, which works on every supported version.
+     */
+    delete_transient( 'zanderio_authorize_url' );
+    wp_safe_redirect( admin_url( 'options-general.php?page=zanderio' ) );
+    exit;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -450,7 +559,9 @@ function zanderio_do_handshake_and_redirect() {
     $code = wp_remote_retrieve_response_code( $response );
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-    if ( $code !== 200 || empty( $body['data']['authorize_url'] ) ) {
+    /* The widget key, not the authorize URL, is what makes a connection
+       usable — so that is what we require here. */
+    if ( $code !== 200 || empty( $body['data']['widget_key'] ) ) {
         $msg = $body['message'] ?? 'Unknown error (HTTP ' . $code . ')';
         echo '<div class="notice notice-error"><p>Handshake failed: ' . esc_html( $msg ) . '</p></div>';
         return;
@@ -460,21 +571,11 @@ function zanderio_do_handshake_and_redirect() {
     update_option( 'zanderio_domain',        $body['data']['domain'] );
     zanderio_store_remote_identity( $body, true );
 
-    add_filter( 'allowed_redirect_hosts', 'zanderio_allowed_redirect_hosts' );
-    wp_safe_redirect( $body['data']['authorize_url'] );
+    /* Same reason as the activation path: no redirect to
+       authorize-application.php, which 404s on WordPress below 5.6. The
+       handshake above already delivered everything the connection needs. */
+    wp_safe_redirect( admin_url( 'options-general.php?page=zanderio&connected=1' ) );
     exit;
-}
-
-/**
- * Allow Zanderio hosts for safe redirects (authorize-application flow).
- *
- * @param  array $hosts Existing allowed hosts.
- * @return array
- */
-function zanderio_allowed_redirect_hosts( $hosts ) {
-    $hosts[] = 'zanderio.ai';
-    $hosts[] = 'api.zanderio.ai';
-    return $hosts;
 }
 
 /**
@@ -602,6 +703,18 @@ function zanderio_uninstall() {
     delete_option( 'zanderio_domain' );
     delete_option( 'zanderio_store_id' ); /* legacy: written by <=1.4.2, no longer set */
     delete_option( 'zanderio_widget_color' );
+
+    /* Revoke the WooCommerce key we minted — leaving a live read key behind
+       after an uninstall would be a lingering grant the merchant never sees. */
+    if ( function_exists( 'wc_api_hash' ) ) {
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- WooCommerce exposes no API for this.
+        $wpdb->delete(
+            $wpdb->prefix . 'woocommerce_api_keys',
+            array( 'description' => ZANDERIO_WC_KEY_LABEL ),
+            array( '%s' )
+        );
+    }
     delete_option( 'zanderio_activation_error' );
     delete_transient( 'zanderio_authorize_url' );
     delete_transient( 'zanderio_redirect_after_activate' );

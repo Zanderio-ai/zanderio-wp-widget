@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "sources/wordpress/assets", ".keep", "node_modules"] },
+  { ignores: ["dist", "adapters/*/assets", ".keep", "node_modules"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -21,6 +21,8 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-explicit-any": "warn",
+      // Loading-flag setState inside an effect is intentional here (mirrors the
+      // client/app playground history-load pattern); treat as advisory.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

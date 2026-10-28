@@ -12,20 +12,15 @@
  * confirmation-sheet UX land in Phase 3.
  */
 
+import type { CartLine, CartPort } from "@zanderio/core/artifacts";
 import type { Storefront } from "@/config/types";
-
-export interface CartLine {
-  productId: string;
-  variationId?: string;
-  quantity: number;
-  attributes?: Record<string, string>;
-}
 
 export interface CartSnapshot {
   itemCount: number;
 }
 
-export interface CartAdapter {
+/** The shared cart sheet's {@link CartPort}, plus what the widget itself needs. */
+export interface CartAdapter extends CartPort {
   readonly storefront: Storefront;
   /** Whether this storefront supports in-place cart adds. */
   readonly supportsCart: boolean;

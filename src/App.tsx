@@ -75,7 +75,8 @@ export default function App({ settings }: { settings: WidgetSettings }) {
 
   const config = result?.config;
   const brandColor = config?.color ?? "#7E3FF2";
-  const position = isMobile ? config?.mobilePosition : config?.desktopPosition;
+  // One side for every screen size — the merchant's choice applies to mobile too.
+  const position = config?.position;
 
   // Merchant can opt the chat window to open itself once, unprompted.
   // Mirrors the dashboard widget-appearance preview: with the attention
@@ -104,6 +105,8 @@ export default function App({ settings }: { settings: WidgetSettings }) {
           config={config}
           brandColor={brandColor}
           chat={chat}
+          storefront={storefront}
+          suggestedQuestions={result?.suggestedQuestions ?? []}
           onClose={() => setIsOpen(false)}
           onStartNewChat={startNewChat}
         />
