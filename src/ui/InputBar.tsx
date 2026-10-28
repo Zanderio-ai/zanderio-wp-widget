@@ -1,6 +1,7 @@
 /**
  * @module ui/InputBar
- * @description Composer — textarea with mic + send/stop icons docked inside its right edge.
+ * @description Composer — textarea with photo, mic and send/stop icons docked
+ * inside its right edge, and the chosen photo previewed above it.
  */
 
 import { useRef, useState } from "react";
@@ -18,11 +19,17 @@ interface InputBarProps {
   onValueChange?: (value: string) => void;
   /** Rendered inside the field's right edge, before the send button (e.g. a mic button). */
   voiceControl?: React.ReactNode;
+  /** Rendered inside the field's right edge, before the voice control (the photo button). */
+  attachControl?: React.ReactNode;
+  /** The chosen photo, shown above the field. While present, the message may be sent without words. */
+  attachment?: React.ReactNode;
+  /** The message can't be sent yet (e.g. its photo is still being checked). */
+  sendBlocked?: boolean;
 }
 
 const wrap = css`
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   padding: 12px;
   border-top: 1px solid var(--z-border);
   background: var(--z-bg);
@@ -33,7 +40,6 @@ const wrap = css`
 // flex children, so the buttons are always inside it (bottom-aligned so the
 // icons stay put as the textarea grows to multiple rows).
 const fieldPill = (disabled?: boolean) => css`
-  flex: 1;
   display: flex;
   align-items: flex-end;
   gap: 4px;
@@ -59,12 +65,20 @@ const field = (isMobile?: boolean) => css`
   resize: none;
   border: none;
   background: transparent;
+  /* Explicit — a textarea takes its color from the UA's \`fieldtext\` system
+     color rather than inheriting, which turns white on a host page that sets
+     \`color-scheme: dark\` (inherited across the shadow boundary). */
+  color: var(--z-text);
   padding: 6px 4px 6px 10px;
   font-size: ${isMobile ? "16px" : "14px"};
   font-family: var(--z-font);
   line-height: 1.45;
   max-height: 96px;
   outline: none;
+  &::placeholder {
+    color: var(--z-text-disabled);
+    opacity: 1;
+  }
 `;
 
 const iconTray = css`
@@ -110,6 +124,9 @@ export function InputBar({
   value: externalValue,
   onValueChange,
   voiceControl,
+  attachControl,
+  attachment,
+  sendBlocked,
 }: InputBarProps) {
   const [internalValue, setInternalValue] = useState("");
   const isControlled = externalValue !== undefined;
@@ -125,9 +142,11 @@ export function InputBar({
   // on the default action.
   const focusField = () => textareaRef.current?.focus();
 
+  const canSend = !disabled && !sendBlocked && (Boolean(value.trim()) || Boolean(attachment));
+
   const submit = () => {
     const text = value.trim();
-    if (!text) return;
+    if (!canSend) return;
     setValue("");
     onSend(text);
   };
@@ -141,18 +160,26 @@ export function InputBar({
 
   return (
     <div css={wrap}>
+      {attachment}
       <div css={fieldPill(disabled)} onMouseDown={focusField}>
         <textarea
           ref={textareaRef}
           css={field(isMobile)}
           rows={1}
-          placeholder={disabled ? "Conversation ended" : "Type a message…"}
+          placeholder={
+            disabled
+              ? "Conversation ended"
+              : attachment
+                ? "Add a message about this photo (optional)…"
+                : "Type a message…"
+          }
           value={value}
           disabled={disabled}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
         />
         <div css={iconTray}>
+          {attachControl}
           {voiceControl}
           {isStreaming ? (
             <button type="button" aria-label="Stop" onClick={onStop} css={sendBtn(brandColor, true)}>
@@ -165,8 +192,8 @@ export function InputBar({
               type="button"
               aria-label="Send"
               onClick={submit}
-              disabled={disabled || !value.trim()}
-              css={sendBtn(brandColor, !disabled && Boolean(value.trim()))}
+              disabled={!canSend}
+              css={sendBtn(brandColor, canSend)}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path

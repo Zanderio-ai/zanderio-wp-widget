@@ -1,0 +1,37 @@
+/**
+ * @zanderio/core/chat-ui — the interrupt (HITL) step cards and the other
+ * in-chat pieces (message body, starter questions, voice messages).
+ *
+ * The React half of the chat contracts in `@zanderio/core/chat`: the inline
+ * cards that render a pending `data-interrupt` and send the visitor's answer
+ * back through the JSON-resume pattern.
+ *
+ * Styling is Emotion; there is no stylesheet to import. `brandColor` is passed
+ * as a prop rather than read from `--z-primary` because the selected states
+ * need an alpha tint, and hex alpha cannot be appended to a `var()` reference.
+ */
+export { InterruptCard } from "./InterruptCard.js";
+export { BookingStepCard } from "./BookingStepCard.js";
+export { CrmCollectCard } from "./CrmCollectCard.js";
+export { PaymentsStepCard } from "./PaymentsStepCard.js";
+export { MarketingConsentCard } from "./MarketingConsentCard.js";
+/** Form styles, so host-local step cards can match these. */
+export { actionsRow, confirmButton, fieldGroup, fieldLabel, ghostButton, input, pill, spacer, subtitle, summaryLine, title, } from "./form.js";
+/* Envelope helpers, re-exported from the contract layer. */
+export { interruptPhase, unwrapInterrupt } from "../chat/envelope.js";
+/* Starter-question cards shown on an empty chat. */
+export { SuggestedQuestions } from "./SuggestedQuestions.js";
+/* Voice-to-voice: the transcript bubble and the one shared player behind it. */
+export { VoiceMessageBubble, VoiceReplyFailed } from "./VoiceMessageBubble.js";
+export { primeVoiceAudio, useVoicePlayback, voicePlayer } from "./voice-player.js";
+/* Voice input: recording (with its upload port), the composer pieces, and the
+ * voice-to-voice turn on top of useChat (with its reply port). */
+export { useVoiceInput } from "./use-voice-input.js";
+export { useVoiceReplies } from "./use-voice-replies.js";
+export { VoicePanel } from "./VoicePanel.js";
+export { VoiceErrorBanner } from "./VoiceErrorBanner.js";
+export { VoiceInputButton } from "./VoiceInputButton.js";
+/* Message body rendering — markdown, images, YouTube thumbnails. */
+export { MessageContent } from "./MessageContent.js";
+export { getYouTubeId, stripParensAroundYouTubeLinks, YouTubeThumbnail } from "./youtube.js";
+//# sourceMappingURL=index.js.map

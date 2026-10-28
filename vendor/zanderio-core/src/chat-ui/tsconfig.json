@@ -1,0 +1,16 @@
+{
+  // Editor-facing config. The build does not use this file — `npm run
+  // build:client` invokes ../../tsconfig.client.json directly.
+  //
+  // It exists because the TypeScript language server picks the *nearest*
+  // tsconfig.json when it opens a file. The root tsconfig.json is the server
+  // build and deliberately excludes this directory, so without this file the
+  // editor would fall back to an inferred project with default compiler
+  // options — no JSX, no NodeNext resolution — and report phantom
+  // "Cannot find module '@emotion/react'" errors on every card.
+  //
+  // Keep it a pure re-export of the real artifacts config so the two can
+  // never disagree.
+  "extends": "../../tsconfig.client.json",
+  "include": ["**/*.ts", "**/*.tsx"]
+}

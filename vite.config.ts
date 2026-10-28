@@ -53,6 +53,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
+    // @zanderio/core carries react/@emotion as devDependencies so it can build
+    // itself on install. Pin these to the widget's copy: a second React or a
+    // second Emotion cache would break hooks and leak styles out of the shadow
+    // root.
+    dedupe: ["react", "react-dom", "@emotion/react"],
   },
   build: {
     outDir: cfg.outDir,
@@ -74,7 +79,8 @@ export default defineConfig({
     },
   },
   define: {
-    "process.env.NODE_ENV": '"production"',
+    // Tests keep React's development build: its test helpers (act) are not in production.
+    "process.env.NODE_ENV": process.env.VITEST ? '"test"' : '"production"',
     "import.meta.env.VITE_API_BASE_URL": JSON.stringify(API_URLS[env]),
     "import.meta.env.VITE_AI_URL": JSON.stringify(AI_URLS[env]),
     __WIDGET_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.0.0"),

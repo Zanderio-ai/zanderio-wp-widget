@@ -16,7 +16,7 @@ git clone https://github.com/Zanderio-ai/zanderio-wp-widget.git
 cd zanderio-wp-widget
 
 # 2. Install dependencies
-npm install
+npm ci
 
 # 3. Build the WordPress widget bundle
 WIDGET_ENV=prod npm run build:wordpress
@@ -24,12 +24,21 @@ WIDGET_ENV=prod npm run build:wordpress
 
 The compiled file is written to `sources/wordpress/assets/loader.js`.
 
+## Layout
+
+| Path | Contents |
+|------|----------|
+| `src/` | The widget: launcher, chat window, transport |
+| `vendor/zanderio-core/` | The shared chat cards, artifacts and chat logic (`@zanderio/core`) |
+| `sources/wordpress/` | The WordPress plugin around the bundle |
+
 ## Tech stack
 
 | Tool | Purpose |
 |------|---------|
 | [Vite](https://vitejs.dev/) | Build / bundler |
 | [React](https://react.dev/) | UI framework |
+| [Emotion](https://emotion.sh/) | Component styles |
 | [Terser](https://terser.org/) | JavaScript minifier |
 | [Vercel AI SDK](https://sdk.vercel.ai/) | Streaming chat transport (SSE) |
 

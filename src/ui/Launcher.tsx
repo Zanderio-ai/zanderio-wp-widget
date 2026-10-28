@@ -15,7 +15,7 @@ interface LauncherProps {
   brandColor: string;
   logoUrl?: string | null;
   animation?: WidgetConfig["animation"];
-  position?: "bottom-right" | "bottom-left" | "bottom-center";
+  position?: WidgetConfig["position"];
   onToggle: () => void;
 }
 
@@ -67,9 +67,7 @@ const base = css`
 `;
 
 function placement(position: LauncherProps["position"]) {
-  if (position === "bottom-left") return css`left: 20px;`;
-  if (position === "bottom-center") return css`left: 50%; transform: translateX(-50%);`;
-  return css`right: 20px;`;
+  return position === "left" ? css`left: 20px;` : css`right: 20px;`;
 }
 
 const skeletonCss = css`

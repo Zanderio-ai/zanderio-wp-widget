@@ -1,0 +1,52 @@
+{
+  "name": "@zanderio/core",
+  "version": "3.13.0",
+  "description": "Browser half of Zanderio's internal @zanderio/core, vendored for the public widget source.",
+  "type": "module",
+  "exports": {
+    "./artifacts": {
+      "types": "./dist/artifacts/index.d.ts",
+      "import": "./dist/artifacts/index.js"
+    },
+    "./chat": {
+      "types": "./dist/chat/index.d.ts",
+      "import": "./dist/chat/index.js"
+    },
+    "./chat-ui": {
+      "types": "./dist/chat-ui/index.d.ts",
+      "import": "./dist/chat-ui/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js"
+    }
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19",
+    "@emotion/react": "^11",
+    "ai": "^6",
+    "react-markdown": "^10",
+    "remark-gfm": "^4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "@emotion/react": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "react-markdown": {
+      "optional": true
+    },
+    "remark-gfm": {
+      "optional": true
+    }
+  }
+}

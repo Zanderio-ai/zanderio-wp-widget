@@ -9,23 +9,19 @@
 
 import { css } from "@emotion/react";
 import { tokens } from "@/config/tokens";
+import type { WidgetConfig } from "@/config/types";
 
 export interface NudgeBubbleProps {
   message: string;
   name: string;
   brandColor: string;
-  position?: "bottom-right" | "bottom-left" | "bottom-center";
+  position?: WidgetConfig["position"];
   onOpen: () => void;
   onDismiss: () => void;
 }
 
 export function NudgeBubble({ message, name, brandColor, position, onOpen, onDismiss }: NudgeBubbleProps) {
-  const side =
-    position === "bottom-left"
-      ? css`left: 20px;`
-      : position === "bottom-center"
-        ? css`left: 50%; transform: translateX(-50%);`
-        : css`right: 20px;`;
+  const side = position === "left" ? css`left: 20px;` : css`right: 20px;`;
 
   return (
     <div
@@ -89,7 +85,7 @@ export function NudgeBubble({ message, name, brandColor, position, onOpen, onDis
         css={css`
           position: absolute;
           bottom: -5px;
-          ${position === "bottom-left" ? "left: 22px;" : "right: 22px;"}
+          ${position === "left" ? "left: 22px;" : "right: 22px;"}
           width: 10px;
           height: 10px;
           background: ${tokens.color.bg};

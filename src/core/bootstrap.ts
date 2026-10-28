@@ -33,7 +33,8 @@
  *
  * ── Bootstrap contract ──────────────────────────────────────────────────────
  *   req:  POST /v1/widget/bootstrap  { key, visitor_id? }
- *   res:  { storeId, tenantId, visitorId, aiServiceToken, config, nudges }
+ *   res:  { storeId, tenantId, visitorId, aiServiceToken, config, nudges,
+ *           suggestedQuestions }   // [] when the merchant's toggle is off
  *
  * ConversationId is fully client-owned — the AI service keys LangGraph
  * checkpoints on the UUID, so "start new chat" is just a new UUID.
@@ -114,7 +115,22 @@ export async function bootstrapWidget(
     config: normalizeWidgetConfig(data.config),
     conversationId,
     nudges: normalizeNudges(data.nudges),
+    suggestedQuestions: normalizeSuggestedQuestions(data.suggestedQuestions),
   };
+}
+
+/**
+ * Coerce the server's `suggestedQuestions` into a clean, capped list of
+ * non-empty strings. Tolerates a missing/malformed field (returns []) so a
+ * bad payload can never break bootstrap.
+ */
+export function normalizeSuggestedQuestions(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((q): q is string => typeof q === "string")
+    .map((q) => q.trim())
+    .filter(Boolean)
+    .slice(0, 3);
 }
 
 /** Maps bootstrap HTTP failures to a stable, user-facing reason code. */

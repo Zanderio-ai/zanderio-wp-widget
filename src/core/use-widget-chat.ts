@@ -6,26 +6,34 @@
  * portal session token for the bootstrap-issued `aiServiceToken` and drops the
  * dashboard-only persistence store (the widget's conversation id comes from
  * bootstrap). Streams from `POST {AI}/v1/threads/{id}/chat`.
+ *
+ * Voice-to-voice rides on the same turn, through `useVoiceReplies` from
+ * `@zanderio/core/chat-ui` (shared with the dashboard playground); this hook
+ * only hands it the widget's transport. A photo search rides on it the same
+ * way: the photo is uploaded first, and the turn carries its id.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { env } from "@/config/env";
-import { fetchThreadState, hydratedInterruptMessage, langGraphToUIMessages } from "./history";
-import type { ChatUIMessage } from "./chat-types";
+import {
+  hydratedInterruptMessage,
+  langGraphToUIMessages,
+  pendingInterrupt,
+  streamStatusLabel,
+} from "@zanderio/core/chat";
+import type { ChatUIMessage } from "@zanderio/core/chat";
+import { useVoiceReplies } from "@zanderio/core/chat-ui";
+import type { InterruptResume, VoiceTurnFinish } from "@zanderio/core/chat-ui";
+import { fetchThreadState } from "./history";
+import type { AcceptedImage } from "./use-image-attachment";
+import { primeVisitorImage } from "./visitor-image";
+import { voiceReplyRequester } from "./voice-audio";
 
 interface UseWidgetChatArgs {
   conversationId: string | null;
   token: string | null;
-}
-
-function isInterruptPart(part: ChatUIMessage["parts"][number]) {
-  return part.type === "data-interrupt";
-}
-
-function isStatusPart(part: ChatUIMessage["parts"][number]) {
-  return part.type === "data-status";
 }
 
 export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
@@ -89,8 +97,29 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     [prepareRequest],
   );
 
+  // `onFinish` is wired through a ref: useChat needs it before
+  // useVoiceReplies (which needs useChat's setMessages) exists.
+  const voiceFinishRef = useRef<VoiceTurnFinish | null>(null);
   const { messages, sendMessage, status, stop, setMessages, error, regenerate } =
-    useChat<ChatUIMessage>({ transport });
+    useChat<ChatUIMessage>({
+      transport,
+      onFinish: (event) => voiceFinishRef.current?.(event),
+    });
+
+  // Reads the token when a reply is requested, not when this is built.
+  // eslint-disable-next-line react-hooks/refs
+  const requestReply = useMemo(() => voiceReplyRequester(() => tokenRef.current), []);
+  const voice = useVoiceReplies({
+    conversationId,
+    setMessages,
+    sendMessage,
+    status,
+    requestReply,
+  });
+  useEffect(() => {
+    voiceFinishRef.current = voice.onFinish;
+  }, [voice.onFinish]);
+  const { endVoiceTurn, speakMissingReplies } = voice;
 
   // Hydrate prior turns when the conversation/token becomes available.
   useEffect(() => {
@@ -112,45 +141,58 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
       const pending = hydratedInterruptMessage(state?.interrupt);
       setMessages(pending ? [...history, pending] : history);
       setIsHistoryLoading(false);
+      // A voice reply that never arrived (failed, or the page was reloaded
+      // first) is spoken now rather than left as text.
+      void speakMissingReplies(history);
     });
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [conversationId, token, setMessages]);
-
-  // Latest human-in-the-loop interrupt awaiting a response (booking, etc.).
-  const interrupt = useMemo(() => {
-    const assistant = [...messages].reverse().find((m) => m.role === "assistant");
-    const part = assistant?.parts.find(isInterruptPart);
-    return part && "data" in part ? part.data : null;
-  }, [messages]);
+  }, [conversationId, token, setMessages, speakMissingReplies]);
 
   const isStreaming = status === "submitted" || status === "streaming";
-
-  // Latest "what's happening" status — transient, only meaningful while a
-  // run is actually in flight; the AI service never persists these, so a
-  // reloaded conversation never has one.
-  const statusLabel = useMemo(() => {
-    if (!isStreaming) return null;
-    const assistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!assistant) return null;
-    const statusParts = assistant.parts.filter(isStatusPart);
-    const latest = statusParts[statusParts.length - 1];
-    return latest && "data" in latest && typeof latest.data === "string" ? latest.data : null;
-  }, [messages, isStreaming]);
+  // Latest human-in-the-loop interrupt awaiting a response (booking, etc.).
+  const interrupt = useMemo(() => pendingInterrupt(messages), [messages]);
+  const statusLabel = useMemo(
+    () => streamStatusLabel(messages, isStreaming),
+    [messages, isStreaming],
+  );
 
   const send = useCallback(
     (text: string) => {
       if (!conversationId || !text.trim()) return;
+      endVoiceTurn();
       sendMessage({ text: text.trim() });
     },
-    [conversationId, sendMessage],
+    [conversationId, sendMessage, endVoiceTurn],
+  );
+
+  // Send a photo the AI service accepted, with any words typed alongside it.
+  // `image.image_id` tells the AI service which photo to search the catalog with.
+  const sendImage = useCallback(
+    ({ image, blob, text }: AcceptedImage) => {
+      if (!conversationId) return;
+      primeVisitorImage(image.image_id, blob);
+      endVoiceTurn();
+      const words = text.trim();
+      sendMessage(
+        {
+          role: "user",
+          parts: [
+            { type: "data-image", data: image },
+            ...(words ? [{ type: "text" as const, text: words }] : []),
+          ],
+        },
+        { body: { image: { image_id: image.image_id } } },
+      );
+    },
+    [conversationId, sendMessage, endVoiceTurn],
   );
 
   const respondToInterrupt = useCallback(
-    (response: Record<string, unknown>) => {
+    (response: InterruptResume) => {
       if (!conversationId) return;
       sendMessage({ text: "" }, { body: { resume: response } });
     },
@@ -161,11 +203,21 @@ export function useWidgetChat({ conversationId, token }: UseWidgetChatArgs) {
     messages,
     isStreaming,
     isLoading: isHistoryLoading || isStreaming,
+    isHistoryLoading,
+    /** True once there's a conversation + token, i.e. `send` will actually send. */
+    isReady: Boolean(conversationId && token),
     isClosed,
     error,
     statusLabel,
     interrupt,
     send,
+    sendVoice: voice.sendVoice,
+    sendImage,
+    voiceReplyPending: voice.voiceReplyPending,
+    voiceReply: voice.voiceReply,
+    voiceReplyStatus: voice.voiceReplyStatus,
+    retryVoiceReply: voice.retryVoiceReply,
+    conversationId,
     respondToInterrupt,
     stop,
     regenerate,

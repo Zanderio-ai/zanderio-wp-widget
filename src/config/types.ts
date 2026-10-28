@@ -36,9 +36,8 @@ export interface WidgetConfig {
   color: string;
   logoUrl: string | null;
   welcomeMessage: string;
-  desktopPosition: "bottom-right" | "bottom-left";
-  mobilePosition: "bottom-right" | "bottom-left" | "bottom-center";
-  buttonType: string | null;
+  /** Side the launcher, panel and bubbles dock to — bottom corner, on every screen size. */
+  position: "left" | "right";
   proactive: {
     enabled: boolean;
     message: string;
@@ -53,7 +52,17 @@ export interface WidgetConfig {
   autoPopup: boolean;
   /** Merchant kill-switch for the mic/voice-input button. */
   voiceAssistantEnabled: boolean;
+  /**
+   * Which voice feature the mic drives — only ever one. "voice_to_text" types
+   * the visitor's words into a normal text turn; "voice_to_voice" sends the
+   * recording as a voice message and the assistant answers with one.
+   */
+  voiceMode: VoiceMode;
+  /** Merchant toggle for the photo button — visitors search the catalog with a product photo. */
+  imageSearchEnabled: boolean;
 }
+
+export type VoiceMode = "off" | "voice_to_text" | "voice_to_voice";
 
 /** Successful response from `POST /v1/widget/bootstrap`. */
 export interface BootstrapResult {
@@ -67,4 +76,10 @@ export interface BootstrapResult {
   conversationId: string;
   /** Proactive nudges eligible for this store (see core/nudges). */
   nudges: Nudge[];
+  /**
+   * Auto-generated starter questions about this store, shown as tappable chips
+   * before the visitor's first message. Empty when the merchant has the
+   * "Show suggested questions" widget toggle off (server decides).
+   */
+  suggestedQuestions: string[];
 }

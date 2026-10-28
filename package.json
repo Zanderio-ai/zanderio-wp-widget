@@ -1,6 +1,6 @@
 {
   "name": "zanderio-wp-widget",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "private": false,
   "type": "module",
   "license": "GPL-2.0-or-later",
@@ -19,6 +19,7 @@
     "@ai-sdk/react": "^3.0.210",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@zanderio/core": "file:vendor/zanderio-core",
     "ai": "^6.0.208",
     "react": "19.2.7",
     "react-dom": "19.2.7",

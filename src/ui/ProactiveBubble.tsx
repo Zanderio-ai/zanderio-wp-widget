@@ -23,7 +23,7 @@ interface ProactiveBubbleProps {
   brandColor: string;
   isOpen: boolean;
   suppressed?: boolean;
-  position?: "bottom-right" | "bottom-left" | "bottom-center";
+  position?: WidgetConfig["position"];
   onOpen: () => void;
 }
 
