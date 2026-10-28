@@ -1,6 +1,6 @@
 {
   "name": "@zanderio/core",
-  "version": "3.13.0",
+  "version": "3.14.0",
   "description": "Browser half of Zanderio's internal @zanderio/core, vendored for the public widget source.",
   "type": "module",
   "exports": {
